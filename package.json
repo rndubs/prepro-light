@@ -66,6 +66,7 @@
     "test": "node ./dist/test/runTest.js"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
@@ -73,6 +74,8 @@
     "@vscode/test-electron": "^2.3.0",
     "css-loader": "^6.8.1",
     "eslint": "^8.50.0",
+    "glob": "^11.0.3",
+    "mocha": "^11.7.5",
     "style-loader": "^3.3.3",
     "ts-loader": "^9.5.0",
     "typescript": "^5.3.0",

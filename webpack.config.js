@@ -74,4 +74,49 @@ const webviewConfig = {
   }
 };
 
-module.exports = [extensionConfig, webviewConfig];
+/**@type {import('webpack').Configuration}*/
+const testConfig = {
+  target: 'node',
+  mode: 'none',
+  entry: {
+    'test/runTest': './test/runTest.ts',
+    'test/suite/index': './test/suite/index.ts',
+    'test/suite/helpers': './test/suite/helpers.ts',
+    'test/suite/extension.test': './test/suite/extension.test.ts',
+    'test/suite/fileLoading.test': './test/suite/fileLoading.test.ts',
+    'test/suite/webview.test': './test/suite/webview.test.ts',
+    'test/suite/rendering.test': './test/suite/rendering.test.ts'
+  },
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].js',
+    libraryTarget: 'commonjs2',
+    devtoolModuleFilenameTemplate: '../[resource-path]'
+  },
+  devtool: 'source-map',
+  externals: {
+    vscode: 'commonjs vscode',
+    mocha: 'commonjs mocha'
+  },
+  resolve: {
+    extensions: ['.ts', '.js']
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: 'ts-loader',
+            options: {
+              configFile: 'tsconfig.test.json'
+            }
+          }
+        ]
+      }
+    ]
+  }
+};
+
+module.exports = [extensionConfig, webviewConfig, testConfig];
