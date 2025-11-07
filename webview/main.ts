@@ -3,7 +3,7 @@
  * This script runs in the webview context and handles mesh visualization
  */
 
-import { VTKRenderer } from './vtkRenderer';
+import { VTKRenderer, RenderMode } from './vtkRenderer';
 import { loadMeshFile } from './meshLoader';
 
 // VS Code API (available in webview context)
@@ -19,6 +19,10 @@ const vscode = acquireVsCodeApi();
 let loadingElement: HTMLElement | null;
 let errorElement: HTMLElement | null;
 let viewerContainer: HTMLElement | null;
+let renderModeSelect: HTMLSelectElement | null;
+let resetCameraButton: HTMLButtonElement | null;
+let backgroundColorInput: HTMLInputElement | null;
+let showAxesCheckbox: HTMLInputElement | null;
 
 // VTK.js renderer
 let vtkRenderer: VTKRenderer | null = null;
@@ -33,6 +37,10 @@ function initialize() {
     loadingElement = document.getElementById('loading');
     errorElement = document.getElementById('error');
     viewerContainer = document.getElementById('viewer-container');
+    renderModeSelect = document.getElementById('renderMode') as HTMLSelectElement;
+    resetCameraButton = document.getElementById('resetCamera') as HTMLButtonElement;
+    backgroundColorInput = document.getElementById('backgroundColor') as HTMLInputElement;
+    showAxesCheckbox = document.getElementById('showAxes') as HTMLInputElement;
 
     // Initialize VTK.js renderer
     if (viewerContainer) {
@@ -48,6 +56,9 @@ function initialize() {
         }
     }
 
+    // Set up UI controls
+    setupUIControls();
+
     // Set up message listener
     window.addEventListener('message', handleMessage);
 
@@ -62,6 +73,67 @@ function initialize() {
     sendMessage('ready', {});
 
     console.log('Mesh viewer webview initialized');
+}
+
+/**
+ * Set up UI control event handlers
+ */
+function setupUIControls() {
+    // Render mode selector
+    if (renderModeSelect) {
+        renderModeSelect.addEventListener('change', () => {
+            if (vtkRenderer && renderModeSelect) {
+                const mode = renderModeSelect.value as RenderMode;
+                vtkRenderer.setRenderMode(mode);
+                console.log(`Render mode changed to: ${mode}`);
+            }
+        });
+    }
+
+    // Reset camera button
+    if (resetCameraButton) {
+        resetCameraButton.addEventListener('click', () => {
+            if (vtkRenderer) {
+                vtkRenderer.resetCamera();
+                console.log('Camera reset');
+            }
+        });
+    }
+
+    // Background color picker
+    if (backgroundColorInput) {
+        backgroundColorInput.addEventListener('input', () => {
+            if (vtkRenderer && backgroundColorInput) {
+                const color = hexToRgb(backgroundColorInput.value);
+                if (color) {
+                    vtkRenderer.setBackground(color.r / 255, color.g / 255, color.b / 255);
+                    console.log(`Background color changed to: ${backgroundColorInput.value}`);
+                }
+            }
+        });
+    }
+
+    // Show axes checkbox
+    if (showAxesCheckbox) {
+        showAxesCheckbox.addEventListener('change', () => {
+            if (vtkRenderer && showAxesCheckbox) {
+                vtkRenderer.toggleOrientationWidget(showAxesCheckbox.checked);
+                console.log(`Axes visibility: ${showAxesCheckbox.checked}`);
+            }
+        });
+    }
+}
+
+/**
+ * Convert hex color to RGB
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
 }
 
 /**
