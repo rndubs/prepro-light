@@ -3,6 +3,8 @@
  * This script runs in the webview context and handles mesh visualization
  */
 
+import { VTKRenderer } from './vtkRenderer';
+
 // VS Code API (available in webview context)
 declare const acquireVsCodeApi: () => {
     postMessage(message: any): void;
@@ -17,6 +19,9 @@ let loadingElement: HTMLElement | null;
 let errorElement: HTMLElement | null;
 let viewerContainer: HTMLElement | null;
 
+// VTK.js renderer
+let vtkRenderer: VTKRenderer | null = null;
+
 /**
  * Initialize the webview
  */
@@ -28,8 +33,29 @@ function initialize() {
     errorElement = document.getElementById('error');
     viewerContainer = document.getElementById('viewer-container');
 
+    // Initialize VTK.js renderer
+    if (viewerContainer) {
+        try {
+            vtkRenderer = new VTKRenderer(viewerContainer);
+            console.log('VTK.js renderer created successfully');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Failed to create VTK.js renderer:', errorMessage);
+            showError(`Failed to initialize 3D viewer: ${errorMessage}`);
+            sendMessage('error', { message: errorMessage });
+            return;
+        }
+    }
+
     // Set up message listener
     window.addEventListener('message', handleMessage);
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (vtkRenderer) {
+            vtkRenderer.resize();
+        }
+    });
 
     // Notify extension that webview is ready
     sendMessage('ready', {});
@@ -61,13 +87,23 @@ function handleLoadMesh(data: any) {
         console.log('Loading mesh file:', data.fileName);
         sendMessage('info', { message: `Loading mesh: ${data.fileName}` });
 
-        // Hide loading, show placeholder content
+        // Hide loading
         hideLoading();
 
-        // For now, just show file info (VTK.js integration will come in Phase 2)
-        showMeshInfo(data);
+        // Display test geometry using VTK.js
+        if (vtkRenderer) {
+            // Clear any existing scene
+            vtkRenderer.clearScene();
 
-        sendMessage('info', { message: `Mesh loaded: ${data.fileName} (${data.fileExtension})` });
+            // Display a test sphere to verify VTK.js is working
+            // In Phase 3, this will be replaced with actual mesh file parsing
+            vtkRenderer.displayTestSphere();
+
+            sendMessage('info', { message: `Mesh loaded: ${data.fileName} (${data.fileExtension}) - Showing test geometry` });
+        } else {
+            showError('VTK.js renderer not initialized');
+            sendMessage('error', { message: 'VTK.js renderer not initialized' });
+        }
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error loading mesh:', errorMessage);
@@ -76,59 +112,7 @@ function handleLoadMesh(data: any) {
     }
 }
 
-/**
- * Show mesh information (placeholder for Phase 2 VTK.js integration)
- */
-function showMeshInfo(data: any) {
-    if (!viewerContainer) {
-        return;
-    }
 
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = `
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        font-family: var(--vscode-font-family);
-        font-size: 14px;
-        padding: 20px;
-        background-color: var(--vscode-editor-inactiveSelectionBackground);
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    `;
-
-    const contentSize = data.content ? data.content.length : 0;
-    const sizeKB = (contentSize / 1024).toFixed(2);
-
-    infoDiv.innerHTML = `
-        <h2 style="margin-top: 0; color: var(--vscode-foreground);">Mesh File Loaded</h2>
-        <p style="color: var(--vscode-descriptionForeground);">
-            <strong>File:</strong> ${data.fileName}<br>
-            <strong>Type:</strong> ${data.fileExtension}<br>
-            <strong>Size:</strong> ${sizeKB} KB
-        </p>
-        <p style="color: var(--vscode-descriptionForeground); font-style: italic; margin-top: 20px;">
-            3D visualization will be available in Phase 2<br>
-            (VTK.js integration coming soon)
-        </p>
-    `;
-
-    viewerContainer.appendChild(infoDiv);
-}
-
-/**
- * Show loading indicator
- */
-function showLoading() {
-    if (loadingElement) {
-        loadingElement.style.display = 'block';
-    }
-    if (errorElement) {
-        errorElement.style.display = 'none';
-    }
-}
 
 /**
  * Hide loading indicator
