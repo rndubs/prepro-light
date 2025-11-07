@@ -25,6 +25,17 @@ export interface MeshLoadResult {
 }
 
 /**
+ * Material information
+ */
+export interface MaterialInfo {
+    materialId: number;
+    cellCount: number;
+    percentage: number;
+    color?: number[]; // RGB color [0-1 range]
+    name?: string;
+}
+
+/**
  * Mesh information
  */
 export interface MeshInfo {
@@ -34,6 +45,10 @@ export interface MeshInfo {
     hasScalars: boolean;
     hasVectors: boolean;
     scalarArrayNames: string[];
+    hasMaterialData: boolean;
+    materialFieldName?: string;
+    materials?: MaterialInfo[];
+    materialDataArray?: any; // The actual VTK array containing material IDs
 }
 
 /**
@@ -150,7 +165,8 @@ function extractMeshInfo(polyData: any): MeshInfo {
         bounds: [0, 0, 0, 0, 0, 0],
         hasScalars: false,
         hasVectors: false,
-        scalarArrayNames: []
+        scalarArrayNames: [],
+        hasMaterialData: false
     };
 
     try {
@@ -188,7 +204,7 @@ function extractMeshInfo(polyData: any): MeshInfo {
             }
         }
 
-        // Check for cell data
+        // Check for cell data and look for material data
         const cellData = polyData.getCellData();
         if (cellData) {
             const numberOfArrays = cellData.getNumberOfArrays();
@@ -204,6 +220,29 @@ function extractMeshInfo(polyData: any): MeshInfo {
                     const numComponents = array.getNumberOfComponents();
                     if (numComponents === 1) {
                         info.hasScalars = true;
+
+                        // Check if this could be material data
+                        // Material fields are typically named: "Material", "MaterialID", "material_id", "mat", "MatID", etc.
+                        const lowerName = arrayName.toLowerCase();
+                        if (!info.hasMaterialData && (
+                            lowerName === 'material' ||
+                            lowerName === 'materialid' ||
+                            lowerName === 'material_id' ||
+                            lowerName === 'mat' ||
+                            lowerName === 'matid' ||
+                            lowerName === 'mat_id' ||
+                            lowerName === 'region' ||
+                            lowerName === 'regionid'
+                        )) {
+                            info.hasMaterialData = true;
+                            info.materialFieldName = arrayName;
+                            info.materialDataArray = array;
+
+                            // Parse material statistics
+                            info.materials = parseMaterialData(array, info.numberOfCells);
+                            console.log(`Found material data in field: ${arrayName}`);
+                            console.log(`Material statistics:`, info.materials);
+                        }
                     } else if (numComponents === 3) {
                         info.hasVectors = true;
                     }
@@ -216,6 +255,40 @@ function extractMeshInfo(polyData: any): MeshInfo {
     }
 
     return info;
+}
+
+/**
+ * Parse material data from a VTK array
+ */
+function parseMaterialData(materialArray: any, totalCells: number): MaterialInfo[] {
+    const materialMap = new Map<number, number>();
+
+    try {
+        // Count occurrences of each material ID
+        const numValues = materialArray.getNumberOfValues();
+        for (let i = 0; i < numValues; i++) {
+            const materialId = materialArray.getValue(i);
+            materialMap.set(materialId, (materialMap.get(materialId) || 0) + 1);
+        }
+
+        // Convert to MaterialInfo array
+        const materials: MaterialInfo[] = [];
+        materialMap.forEach((cellCount, materialId) => {
+            materials.push({
+                materialId,
+                cellCount,
+                percentage: (cellCount / totalCells) * 100
+            });
+        });
+
+        // Sort by material ID
+        materials.sort((a, b) => a.materialId - b.materialId);
+
+        return materials;
+    } catch (error) {
+        console.error('Error parsing material data:', error);
+        return [];
+    }
 }
 
 /**

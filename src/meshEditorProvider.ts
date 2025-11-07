@@ -281,12 +281,127 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
         input[type="checkbox"] {
             cursor: pointer;
         }
+        #material-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            padding: 8px;
+            border-radius: 4px;
+            max-width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        #material-panel.visible {
+            display: block;
+        }
+        .panel-header {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-close {
+            cursor: pointer;
+            opacity: 0.7;
+            font-size: 16px;
+            line-height: 1;
+        }
+        .panel-close:hover {
+            opacity: 1;
+        }
+        .material-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .material-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .material-item:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .material-color-box {
+            width: 20px;
+            height: 20px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .material-info {
+            flex: 1;
+            font-size: 11px;
+            line-height: 1.3;
+        }
+        .material-id {
+            font-weight: bold;
+        }
+        .material-stats {
+            opacity: 0.7;
+        }
+        .material-checkbox {
+            flex-shrink: 0;
+        }
+        .material-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--vscode-panel-border);
+        }
+        .material-controls button {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        .color-scheme-select {
+            font-size: 11px;
+            padding: 4px;
+        }
     </style>
 </head>
 <body>
     <div id="viewer-container">
         <div id="loading">Loading mesh file...</div>
         <div id="error"></div>
+
+        <!-- Material Panel -->
+        <div id="material-panel">
+            <div class="panel-header">
+                <span>Materials</span>
+                <span class="panel-close" id="closeMaterialPanel">&times;</span>
+            </div>
+            <div class="toolbar-section">
+                <div class="toolbar-label">Color Scheme</div>
+                <select id="colorScheme" class="color-scheme-select">
+                    <option value="default">Default</option>
+                    <option value="rainbow">Rainbow</option>
+                    <option value="pastel">Pastel</option>
+                    <option value="distinct">Distinct</option>
+                </select>
+            </div>
+            <div class="material-list" id="materialList">
+                <!-- Material items will be added here dynamically -->
+            </div>
+            <div class="material-controls">
+                <button id="showAllMaterials">Show All</button>
+                <button id="hideAllMaterials">Hide All</button>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
         <div id="toolbar">
             <div class="toolbar-section">
                 <div class="toolbar-label">Render Mode</div>
@@ -312,6 +427,13 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
                 <div class="checkbox-container">
                     <input type="checkbox" id="showAxes" checked>
                     <label for="showAxes">Show Axes</label>
+                </div>
+            </div>
+
+            <div class="toolbar-section">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="showMaterials">
+                    <label for="showMaterials">Show Materials</label>
                 </div>
             </div>
         </div>

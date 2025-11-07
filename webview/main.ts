@@ -4,7 +4,8 @@
  */
 
 import { VTKRenderer, RenderMode } from './vtkRenderer';
-import { loadMeshFile } from './meshLoader';
+import { loadMeshFile, MeshInfo } from './meshLoader';
+import { MaterialColorScheme } from './materialColors';
 
 // VS Code API (available in webview context)
 declare const acquireVsCodeApi: () => {
@@ -23,9 +24,19 @@ let renderModeSelect: HTMLSelectElement | null;
 let resetCameraButton: HTMLButtonElement | null;
 let backgroundColorInput: HTMLInputElement | null;
 let showAxesCheckbox: HTMLInputElement | null;
+let showMaterialsCheckbox: HTMLInputElement | null;
+let materialPanel: HTMLElement | null;
+let materialList: HTMLElement | null;
+let colorSchemeSelect: HTMLSelectElement | null;
+let closeMaterialPanelButton: HTMLElement | null;
+let showAllMaterialsButton: HTMLButtonElement | null;
+let hideAllMaterialsButton: HTMLButtonElement | null;
 
 // VTK.js renderer
 let vtkRenderer: VTKRenderer | null = null;
+
+// Current mesh info
+let currentMeshInfo: MeshInfo | null = null;
 
 /**
  * Initialize the webview
@@ -41,6 +52,13 @@ function initialize() {
     resetCameraButton = document.getElementById('resetCamera') as HTMLButtonElement;
     backgroundColorInput = document.getElementById('backgroundColor') as HTMLInputElement;
     showAxesCheckbox = document.getElementById('showAxes') as HTMLInputElement;
+    showMaterialsCheckbox = document.getElementById('showMaterials') as HTMLInputElement;
+    materialPanel = document.getElementById('material-panel');
+    materialList = document.getElementById('materialList');
+    colorSchemeSelect = document.getElementById('colorScheme') as HTMLSelectElement;
+    closeMaterialPanelButton = document.getElementById('closeMaterialPanel');
+    showAllMaterialsButton = document.getElementById('showAllMaterials') as HTMLButtonElement;
+    hideAllMaterialsButton = document.getElementById('hideAllMaterials') as HTMLButtonElement;
 
     // Initialize VTK.js renderer
     if (viewerContainer) {
@@ -122,6 +140,81 @@ function setupUIControls() {
             }
         });
     }
+
+    // Show materials checkbox
+    if (showMaterialsCheckbox) {
+        showMaterialsCheckbox.addEventListener('change', () => {
+            if (vtkRenderer && showMaterialsCheckbox) {
+                vtkRenderer.toggleMaterialVisualization(showMaterialsCheckbox.checked);
+
+                // Show/hide material panel
+                if (showMaterialsCheckbox.checked && currentMeshInfo?.hasMaterialData) {
+                    showMaterialPanel();
+                } else {
+                    hideMaterialPanel();
+                }
+            }
+        });
+    }
+
+    // Color scheme selector
+    if (colorSchemeSelect) {
+        colorSchemeSelect.addEventListener('change', () => {
+            if (vtkRenderer && colorSchemeSelect) {
+                const scheme = colorSchemeSelect.value as MaterialColorScheme;
+                vtkRenderer.setMaterialColorScheme(scheme);
+
+                // Update material list colors
+                updateMaterialPanel(currentMeshInfo);
+            }
+        });
+    }
+
+    // Close material panel
+    if (closeMaterialPanelButton) {
+        closeMaterialPanelButton.addEventListener('click', () => {
+            hideMaterialPanel();
+            if (showMaterialsCheckbox) {
+                showMaterialsCheckbox.checked = false;
+                vtkRenderer?.toggleMaterialVisualization(false);
+            }
+        });
+    }
+
+    // Show all materials
+    if (showAllMaterialsButton) {
+        showAllMaterialsButton.addEventListener('click', () => {
+            if (vtkRenderer) {
+                vtkRenderer.showAllMaterials();
+
+                // Update checkboxes
+                const checkboxes = document.querySelectorAll('.material-checkbox');
+                checkboxes.forEach((cb) => {
+                    (cb as HTMLInputElement).checked = true;
+                });
+            }
+        });
+    }
+
+    // Hide all materials
+    if (hideAllMaterialsButton) {
+        hideAllMaterialsButton.addEventListener('click', () => {
+            if (vtkRenderer && currentMeshInfo?.materials) {
+                // Hide all materials
+                currentMeshInfo.materials.forEach(mat => {
+                    if (vtkRenderer) {
+                        vtkRenderer.setMaterialVisibility(mat.materialId, false);
+                    }
+                });
+
+                // Update checkboxes
+                const checkboxes = document.querySelectorAll('.material-checkbox');
+                checkboxes.forEach((cb) => {
+                    (cb as HTMLInputElement).checked = false;
+                });
+            }
+        });
+    }
 }
 
 /**
@@ -190,8 +283,32 @@ async function handleLoadMesh(data: any) {
         // Hide loading indicator
         hideLoading();
 
+        // Store current mesh info
+        currentMeshInfo = loadResult.info || null;
+
         // Display the loaded mesh
         vtkRenderer.displayMesh(loadResult.polyData, loadResult.info);
+
+        // Check if mesh has material data
+        if (loadResult.info?.hasMaterialData) {
+            // Enable materials checkbox
+            if (showMaterialsCheckbox) {
+                showMaterialsCheckbox.disabled = false;
+                showMaterialsCheckbox.checked = true;
+            }
+
+            // Update material panel
+            updateMaterialPanel(loadResult.info);
+
+            // Show material panel
+            showMaterialPanel();
+        } else {
+            // Disable materials checkbox
+            if (showMaterialsCheckbox) {
+                showMaterialsCheckbox.disabled = true;
+                showMaterialsCheckbox.checked = false;
+            }
+        }
 
         // Show file information
         let infoMessage = `Mesh loaded: ${data.fileName}`;
@@ -200,6 +317,9 @@ async function handleLoadMesh(data: any) {
             infoMessage += `\n  Cells: ${loadResult.info.numberOfCells.toLocaleString()}`;
             if (loadResult.info.scalarArrayNames.length > 0) {
                 infoMessage += `\n  Data arrays: ${loadResult.info.scalarArrayNames.join(', ')}`;
+            }
+            if (loadResult.info.hasMaterialData && loadResult.info.materials) {
+                infoMessage += `\n  Materials: ${loadResult.info.materials.length} found`;
             }
         }
 
@@ -244,6 +364,108 @@ function sendMessage(type: string, data: any) {
         type,
         ...data
     });
+}
+
+/**
+ * Show material panel
+ */
+function showMaterialPanel() {
+    if (materialPanel) {
+        materialPanel.classList.add('visible');
+    }
+}
+
+/**
+ * Hide material panel
+ */
+function hideMaterialPanel() {
+    if (materialPanel) {
+        materialPanel.classList.remove('visible');
+    }
+}
+
+/**
+ * Update material panel with material data
+ */
+function updateMaterialPanel(meshInfo: MeshInfo | null) {
+    if (!meshInfo || !meshInfo.hasMaterialData || !meshInfo.materials) {
+        return;
+    }
+
+    if (!materialList) {
+        console.warn('Material list element not found');
+        return;
+    }
+
+    // Clear existing material items
+    materialList.innerHTML = '';
+
+    // Get current mesh info from renderer to get updated colors
+    const rendererMeshInfo = vtkRenderer?.getMeshInfo();
+    const materials = rendererMeshInfo?.materials || meshInfo.materials;
+
+    // Save reference to materialList for use in closure
+    const listElement = materialList;
+
+    // Create material items
+    materials.forEach((mat) => {
+        const materialItem = document.createElement('div');
+        materialItem.className = 'material-item';
+
+        // Color box
+        const colorBox = document.createElement('div');
+        colorBox.className = 'material-color-box';
+        if (mat.color) {
+            const r = Math.round(mat.color[0] * 255);
+            const g = Math.round(mat.color[1] * 255);
+            const b = Math.round(mat.color[2] * 255);
+            colorBox.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+        }
+        materialItem.appendChild(colorBox);
+
+        // Material info
+        const info = document.createElement('div');
+        info.className = 'material-info';
+        const idSpan = document.createElement('div');
+        idSpan.className = 'material-id';
+        idSpan.textContent = mat.name || `Material ${mat.materialId}`;
+        const statsSpan = document.createElement('div');
+        statsSpan.className = 'material-stats';
+        statsSpan.textContent = `${mat.cellCount.toLocaleString()} cells (${mat.percentage.toFixed(1)}%)`;
+        info.appendChild(idSpan);
+        info.appendChild(statsSpan);
+        materialItem.appendChild(info);
+
+        // Visibility checkbox
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'material-checkbox';
+        checkbox.checked = !vtkRenderer?.getHiddenMaterials().has(mat.materialId);
+        checkbox.addEventListener('change', () => {
+            if (vtkRenderer) {
+                vtkRenderer.setMaterialVisibility(mat.materialId, checkbox.checked);
+            }
+        });
+        materialItem.appendChild(checkbox);
+
+        // Click to highlight/select material
+        materialItem.addEventListener('click', (e) => {
+            // Don't trigger if clicking checkbox
+            if (e.target === checkbox) {
+                return;
+            }
+
+            // Toggle checkbox
+            checkbox.checked = !checkbox.checked;
+            if (vtkRenderer) {
+                vtkRenderer.setMaterialVisibility(mat.materialId, checkbox.checked);
+            }
+        });
+
+        listElement.appendChild(materialItem);
+    });
+
+    console.log(`Material panel updated with ${materials.length} materials`);
 }
 
 // Initialize when DOM is ready

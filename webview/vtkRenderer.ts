@@ -23,6 +23,7 @@ import vtkAxesActor from '@kitware/vtk.js/Rendering/Core/AxesActor';
 import vtkProperty from '@kitware/vtk.js/Rendering/Core/Property';
 
 import { MeshInfo } from './meshLoader';
+import { generateMaterialColors, createMaterialLookupTable, MaterialColorScheme } from './materialColors';
 
 export enum RenderMode {
     Surface = 'surface',
@@ -40,6 +41,13 @@ export class VTKRenderer {
     private currentMapper: any = null;
     private orientationWidget: any = null;
     private renderMode: RenderMode = RenderMode.Surface;
+
+    // Material visualization
+    private currentMeshInfo: MeshInfo | null = null;
+    private materialColorScheme: MaterialColorScheme = MaterialColorScheme.Default;
+    private hiddenMaterials: Set<number> = new Set();
+    private materialColors: number[][] = [];
+    private showingMaterials: boolean = false;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -272,6 +280,9 @@ export class VTKRenderer {
     public displayMesh(polyData: any, meshInfo?: MeshInfo): void {
         console.log('Displaying loaded mesh...');
 
+        // Store references for material visualization
+        this.currentMeshInfo = meshInfo || null;
+
         // Check mesh size and warn about performance
         if (meshInfo) {
             const totalElements = meshInfo.numberOfPoints + meshInfo.numberOfCells;
@@ -295,6 +306,12 @@ export class VTKRenderer {
         if (meshInfo && meshInfo.numberOfCells > 100000) {
             console.log('Applying optimizations for large mesh...');
             this.currentMapper.setStatic(true);
+        }
+
+        // Check for material data and apply coloring
+        if (meshInfo && meshInfo.hasMaterialData && meshInfo.materials) {
+            console.log('Applying material coloring...');
+            this.applyMaterialColoring(meshInfo);
         }
 
         // Create actor
@@ -323,7 +340,9 @@ export class VTKRenderer {
                 cells: meshInfo.numberOfCells,
                 bounds: meshInfo.bounds,
                 hasScalars: meshInfo.hasScalars,
-                scalarArrays: meshInfo.scalarArrayNames
+                scalarArrays: meshInfo.scalarArrayNames,
+                hasMaterialData: meshInfo.hasMaterialData,
+                materials: meshInfo.materials
             });
         }
 
@@ -416,6 +435,167 @@ export class VTKRenderer {
         } else {
             this.setRenderMode(RenderMode.Wireframe);
         }
+    }
+
+    /**
+     * Apply material coloring to the mesh
+     */
+    private applyMaterialColoring(meshInfo: MeshInfo): void {
+        if (!meshInfo.hasMaterialData || !meshInfo.materials || !meshInfo.materialDataArray) {
+            console.warn('No material data available for coloring');
+            return;
+        }
+
+        try {
+            // Generate colors for all materials
+            const materialIds = meshInfo.materials.map(m => m.materialId);
+            this.materialColors = generateMaterialColors(materialIds.length, this.materialColorScheme);
+
+            // Store colors in material info
+            meshInfo.materials.forEach((mat, index) => {
+                mat.color = this.materialColors[index];
+            });
+
+            // Create lookup table
+            const lut = createMaterialLookupTable(materialIds, this.materialColors, this.hiddenMaterials);
+
+            // Set the scalar mode to use cell data
+            this.currentMapper.setScalarModeToUseCellData();
+
+            // Set the array to use for coloring
+            this.currentMapper.setColorByArrayName(meshInfo.materialFieldName);
+
+            // Apply the lookup table
+            this.currentMapper.setLookupTable(lut);
+            this.currentMapper.setScalarVisibility(true);
+
+            this.showingMaterials = true;
+
+            console.log(`Material coloring applied: ${materialIds.length} materials`);
+        } catch (error) {
+            console.error('Error applying material coloring:', error);
+        }
+    }
+
+    /**
+     * Toggle material visualization on/off
+     */
+    public toggleMaterialVisualization(enabled?: boolean): void {
+        if (!this.currentMapper) {
+            console.warn('No mapper available');
+            return;
+        }
+
+        const shouldShow = enabled !== undefined ? enabled : !this.showingMaterials;
+
+        if (shouldShow && this.currentMeshInfo?.hasMaterialData) {
+            // Re-apply material coloring
+            this.applyMaterialColoring(this.currentMeshInfo);
+            this.showingMaterials = true;
+        } else {
+            // Disable scalar coloring (revert to default color)
+            this.currentMapper.setScalarVisibility(false);
+            this.showingMaterials = false;
+        }
+
+        this.renderWindow.render();
+        console.log(`Material visualization ${shouldShow ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
+     * Set material color scheme
+     */
+    public setMaterialColorScheme(scheme: MaterialColorScheme): void {
+        this.materialColorScheme = scheme;
+
+        // Re-apply material coloring if currently showing materials
+        if (this.showingMaterials && this.currentMeshInfo?.hasMaterialData) {
+            this.applyMaterialColoring(this.currentMeshInfo);
+            this.renderWindow.render();
+        }
+
+        console.log(`Material color scheme changed to: ${scheme}`);
+    }
+
+    /**
+     * Hide/show specific material
+     */
+    public setMaterialVisibility(materialId: number, visible: boolean): void {
+        if (visible) {
+            this.hiddenMaterials.delete(materialId);
+        } else {
+            this.hiddenMaterials.add(materialId);
+        }
+
+        // Re-apply material coloring
+        if (this.showingMaterials && this.currentMeshInfo?.hasMaterialData) {
+            this.applyMaterialColoring(this.currentMeshInfo);
+            this.renderWindow.render();
+        }
+
+        console.log(`Material ${materialId} ${visible ? 'shown' : 'hidden'}`);
+    }
+
+    /**
+     * Show only selected materials
+     */
+    public showOnlyMaterials(materialIds: number[]): void {
+        if (!this.currentMeshInfo?.materials) {
+            return;
+        }
+
+        // Hide all materials except the selected ones
+        this.currentMeshInfo.materials.forEach(mat => {
+            if (!materialIds.includes(mat.materialId)) {
+                this.hiddenMaterials.add(mat.materialId);
+            } else {
+                this.hiddenMaterials.delete(mat.materialId);
+            }
+        });
+
+        // Re-apply material coloring
+        if (this.showingMaterials && this.currentMeshInfo.hasMaterialData) {
+            this.applyMaterialColoring(this.currentMeshInfo);
+            this.renderWindow.render();
+        }
+
+        console.log(`Showing only materials: ${materialIds.join(', ')}`);
+    }
+
+    /**
+     * Show all materials
+     */
+    public showAllMaterials(): void {
+        this.hiddenMaterials.clear();
+
+        // Re-apply material coloring
+        if (this.showingMaterials && this.currentMeshInfo?.hasMaterialData) {
+            this.applyMaterialColoring(this.currentMeshInfo);
+            this.renderWindow.render();
+        }
+
+        console.log('All materials shown');
+    }
+
+    /**
+     * Get current mesh info (including material data)
+     */
+    public getMeshInfo(): MeshInfo | null {
+        return this.currentMeshInfo;
+    }
+
+    /**
+     * Check if material visualization is enabled
+     */
+    public isMaterialVisualizationEnabled(): boolean {
+        return this.showingMaterials;
+    }
+
+    /**
+     * Get hidden materials set
+     */
+    public getHiddenMaterials(): Set<number> {
+        return new Set(this.hiddenMaterials);
     }
 
     /**

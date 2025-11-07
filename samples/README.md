@@ -5,6 +5,7 @@ This directory contains sample mesh files for testing the Prepro Light extension
 ## Files
 
 - **simple_cube.vtp** - A simple cube in VTK PolyData XML format
+- **cube_with_materials.vtp** - A cube with material assignments (3 materials) for testing material visualization
 - **simple_triangle.stl** - A simple triangle mesh in STL ASCII format
 - **simple_cube.obj** - A simple cube in Wavefront OBJ format
 

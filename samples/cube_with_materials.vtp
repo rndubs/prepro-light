@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<VTKFile type="PolyData" version="0.1" byte_order="LittleEndian">
+  <PolyData>
+    <Piece NumberOfPoints="24" NumberOfPolys="12">
+      <Points>
+        <DataArray type="Float32" NumberOfComponents="3" format="ascii">
+          <!-- Bottom face (z=0) -->
+          0 0 0  1 0 0  1 1 0  0 1 0
+          <!-- Top face (z=1) -->
+          0 0 1  1 0 1  1 1 1  0 1 1
+          <!-- Front face (y=0) -->
+          0 0 0  1 0 0  1 0 1  0 0 1
+          <!-- Back face (y=1) -->
+          0 1 0  1 1 0  1 1 1  0 1 1
+          <!-- Left face (x=0) -->
+          0 0 0  0 1 0  0 1 1  0 0 1
+          <!-- Right face (x=1) -->
+          1 0 0  1 1 0  1 1 1  1 0 1
+        </DataArray>
+      </Points>
+      <Polys>
+        <DataArray type="Int32" Name="connectivity" format="ascii">
+          <!-- Bottom face (Material 1) -->
+          0 1 2  0 2 3
+          <!-- Top face (Material 2) -->
+          4 5 6  4 6 7
+          <!-- Front face (Material 1) -->
+          8 9 10  8 10 11
+          <!-- Back face (Material 2) -->
+          12 13 14  12 14 15
+          <!-- Left face (Material 3) -->
+          16 17 18  16 18 19
+          <!-- Right face (Material 3) -->
+          20 21 22  20 22 23
+        </DataArray>
+        <DataArray type="Int32" Name="offsets" format="ascii">
+          3 6 9 12 15 18 21 24 27 30 33 36
+        </DataArray>
+      </Polys>
+      <CellData>
+        <DataArray type="Int32" Name="MaterialID" format="ascii">
+          1 1 2 2 1 1 2 2 3 3 3 3
+        </DataArray>
+      </CellData>
+    </Piece>
+  </PolyData>
+</VTKFile>
