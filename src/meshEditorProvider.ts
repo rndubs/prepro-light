@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { log } from './extension';
+import { validateMeshFile, formatFileSize, getFileTypeDescription } from './utils/fileUtils';
 
 /**
  * Provider for mesh file custom editor
@@ -76,12 +77,40 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
             const fileName = path.basename(uri.fsPath);
             const fileExtension = path.extname(uri.fsPath).toLowerCase();
 
+            // Validate file
+            const validation = validateMeshFile(fileName, fileContent.byteLength);
+
+            if (!validation.valid) {
+                log(`File validation failed: ${validation.error}`);
+                vscode.window.showErrorMessage(`Cannot load mesh file: ${validation.error}`);
+                webviewPanel.webview.postMessage({
+                    type: 'error',
+                    data: {
+                        message: validation.error
+                    }
+                });
+                return;
+            }
+
+            // Show warning for large files
+            if (validation.warning) {
+                log(`Warning: ${validation.warning}`);
+                vscode.window.showWarningMessage(validation.warning);
+            }
+
+            // Log file information
+            const fileInfo = `${fileName} (${getFileTypeDescription(fileExtension)}, ${formatFileSize(validation.fileSize)})`;
+            log(`Loading ${fileInfo}`);
+            this.outputChannel.appendLine(`Loading mesh file: ${fileInfo}`);
+
             // Send file data to webview
             webviewPanel.webview.postMessage({
                 type: 'loadMesh',
                 data: {
                     fileName,
                     fileExtension,
+                    fileSize: validation.fileSize,
+                    fileType: getFileTypeDescription(fileExtension),
                     content: Array.from(fileContent)
                 }
             });
@@ -91,6 +120,12 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             log(`Error loading mesh file: ${errorMessage}`);
             vscode.window.showErrorMessage(`Failed to load mesh file: ${errorMessage}`);
+            webviewPanel.webview.postMessage({
+                type: 'error',
+                data: {
+                    message: errorMessage
+                }
+            });
         }
     }
 

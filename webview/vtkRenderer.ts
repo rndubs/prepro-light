@@ -16,6 +16,8 @@ import vtkCubeSource from '@kitware/vtk.js/Filters/Sources/CubeSource';
 // @ts-ignore
 import vtkSphereSource from '@kitware/vtk.js/Filters/Sources/SphereSource';
 
+import { MeshInfo } from './meshLoader';
+
 export class VTKRenderer {
     private fullScreenRenderer: any;
     private renderer: any;
@@ -168,6 +170,45 @@ export class VTKRenderer {
      */
     public getRenderWindow(): any {
         return this.renderWindow;
+    }
+
+    /**
+     * Display loaded mesh data
+     */
+    public displayMesh(polyData: any, meshInfo?: MeshInfo): void {
+        console.log('Displaying loaded mesh...');
+
+        // Clear existing scene
+        this.clearScene();
+
+        // Create mapper
+        const mapper = vtkMapper.newInstance();
+        mapper.setInputData(polyData);
+
+        // Create actor
+        const actor = vtkActor.newInstance();
+        actor.setMapper(mapper);
+
+        // Add actor to renderer
+        this.renderer.addActor(actor);
+
+        // Reset camera to fit the scene
+        this.renderer.resetCamera();
+
+        // Render the scene
+        this.renderWindow.render();
+
+        if (meshInfo) {
+            console.log('Mesh statistics:', {
+                points: meshInfo.numberOfPoints,
+                cells: meshInfo.numberOfCells,
+                bounds: meshInfo.bounds,
+                hasScalars: meshInfo.hasScalars,
+                scalarArrays: meshInfo.scalarArrayNames
+            });
+        }
+
+        console.log('Mesh displayed successfully');
     }
 
     /**

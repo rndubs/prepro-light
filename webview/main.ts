@@ -4,6 +4,7 @@
  */
 
 import { VTKRenderer } from './vtkRenderer';
+import { loadMeshFile } from './meshLoader';
 
 // VS Code API (available in webview context)
 declare const acquireVsCodeApi: () => {
@@ -82,28 +83,57 @@ function handleMessage(event: MessageEvent) {
 /**
  * Handle loading a mesh file
  */
-function handleLoadMesh(data: any) {
+async function handleLoadMesh(data: any) {
     try {
         console.log('Loading mesh file:', data.fileName);
-        sendMessage('info', { message: `Loading mesh: ${data.fileName}` });
+        console.log('File type:', data.fileType);
+        console.log('File size:', data.fileSize, 'bytes');
 
-        // Hide loading
-        hideLoading();
+        // Show loading message
+        if (loadingElement) {
+            loadingElement.textContent = `Loading ${data.fileName}...`;
+            loadingElement.style.display = 'block';
+        }
 
-        // Display test geometry using VTK.js
-        if (vtkRenderer) {
-            // Clear any existing scene
-            vtkRenderer.clearScene();
+        sendMessage('info', { message: `Loading mesh: ${data.fileName} (${data.fileType})` });
 
-            // Display a test sphere to verify VTK.js is working
-            // In Phase 3, this will be replaced with actual mesh file parsing
-            vtkRenderer.displayTestSphere();
-
-            sendMessage('info', { message: `Mesh loaded: ${data.fileName} (${data.fileExtension}) - Showing test geometry` });
-        } else {
+        if (!vtkRenderer) {
             showError('VTK.js renderer not initialized');
             sendMessage('error', { message: 'VTK.js renderer not initialized' });
+            return;
         }
+
+        // Convert content array back to Uint8Array
+        const fileContent = new Uint8Array(data.content);
+
+        // Parse the mesh file using the appropriate reader
+        const loadResult = await loadMeshFile(data.fileExtension, fileContent);
+
+        if (!loadResult.success) {
+            showError(loadResult.error || 'Failed to load mesh file');
+            sendMessage('error', { message: loadResult.error || 'Failed to load mesh file' });
+            return;
+        }
+
+        // Hide loading indicator
+        hideLoading();
+
+        // Display the loaded mesh
+        vtkRenderer.displayMesh(loadResult.polyData, loadResult.info);
+
+        // Show file information
+        let infoMessage = `Mesh loaded: ${data.fileName}`;
+        if (loadResult.info) {
+            infoMessage += `\n  Points: ${loadResult.info.numberOfPoints.toLocaleString()}`;
+            infoMessage += `\n  Cells: ${loadResult.info.numberOfCells.toLocaleString()}`;
+            if (loadResult.info.scalarArrayNames.length > 0) {
+                infoMessage += `\n  Data arrays: ${loadResult.info.scalarArrayNames.join(', ')}`;
+            }
+        }
+
+        console.log(infoMessage);
+        sendMessage('info', { message: infoMessage });
+
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error loading mesh:', errorMessage);
