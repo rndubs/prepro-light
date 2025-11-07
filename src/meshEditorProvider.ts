@@ -185,6 +185,7 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
             height: 100vh;
             background-color: var(--vscode-editor-background);
             color: var(--vscode-editor-foreground);
+            font-family: var(--vscode-font-family);
         }
         #viewer-container {
             width: 100%;
@@ -209,12 +210,111 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
             font-family: var(--vscode-font-family);
             color: var(--vscode-errorForeground);
         }
+        #toolbar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            padding: 8px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        .toolbar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .toolbar-label {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 2px;
+        }
+        .toolbar-buttons {
+            display: flex;
+            gap: 4px;
+        }
+        button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 6px 12px;
+            cursor: pointer;
+            border-radius: 2px;
+            font-size: 12px;
+            font-family: var(--vscode-font-family);
+        }
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        button.active {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        select {
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            border: 1px solid var(--vscode-dropdown-border);
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 2px;
+            font-size: 12px;
+            font-family: var(--vscode-font-family);
+        }
+        input[type="color"] {
+            width: 100%;
+            height: 24px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+        }
+        input[type="checkbox"] {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <div id="viewer-container">
         <div id="loading">Loading mesh file...</div>
         <div id="error"></div>
+        <div id="toolbar">
+            <div class="toolbar-section">
+                <div class="toolbar-label">Render Mode</div>
+                <select id="renderMode">
+                    <option value="surface">Surface</option>
+                    <option value="wireframe">Wireframe</option>
+                    <option value="surfaceWithEdges">Surface + Edges</option>
+                    <option value="points">Points</option>
+                </select>
+            </div>
+
+            <div class="toolbar-section">
+                <div class="toolbar-label">Camera</div>
+                <button id="resetCamera">Reset Camera</button>
+            </div>
+
+            <div class="toolbar-section">
+                <div class="toolbar-label">Background</div>
+                <input type="color" id="backgroundColor" value="#1a1a1a">
+            </div>
+
+            <div class="toolbar-section">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="showAxes" checked>
+                    <label for="showAxes">Show Axes</label>
+                </div>
+            </div>
+        </div>
     </div>
     <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
