@@ -281,6 +281,92 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
         input[type="checkbox"] {
             cursor: pointer;
         }
+        #materialPanel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            max-width: 300px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        #materialPanelHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            position: sticky;
+            top: 0;
+            background-color: var(--vscode-editor-background);
+            z-index: 1;
+        }
+        #materialPanelHeader h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        #closeMaterialPanel {
+            background: none;
+            color: var(--vscode-foreground);
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+        }
+        #closeMaterialPanel:hover {
+            background-color: var(--vscode-toolbar-hoverBackground);
+        }
+        #materialList {
+            padding: 8px;
+        }
+        .material-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            border: 1px solid transparent;
+        }
+        .material-item:hover {
+            background-color: var(--vscode-list-hoverBackground);
+            border-color: var(--vscode-list-hoverBackground);
+        }
+        .material-item.selected {
+            background-color: var(--vscode-list-activeSelectionBackground);
+            border-color: var(--vscode-list-activeSelectionBackground);
+        }
+        .material-color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid var(--vscode-panel-border);
+            flex-shrink: 0;
+        }
+        .material-info {
+            flex: 1;
+            font-size: 12px;
+        }
+        .material-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .material-stats {
+            font-size: 10px;
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -314,6 +400,22 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     <label for="showAxes">Show Axes</label>
                 </div>
             </div>
+
+            <div class="toolbar-section" id="materialSection" style="display: none;">
+                <div class="toolbar-label">Materials</div>
+                <div class="checkbox-container">
+                    <input type="checkbox" id="showMaterials" checked>
+                    <label for="showMaterials">Color by Material</label>
+                </div>
+            </div>
+        </div>
+
+        <div id="materialPanel" style="display: none;">
+            <div id="materialPanelHeader">
+                <h3>Materials</h3>
+                <button id="closeMaterialPanel">×</button>
+            </div>
+            <div id="materialList"></div>
         </div>
     </div>
     <script nonce="${nonce}" src="${scriptUri}"></script>

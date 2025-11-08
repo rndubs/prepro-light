@@ -21,6 +21,10 @@ import vtkOrientationMarkerWidget from '@kitware/vtk.js/Interaction/Widgets/Orie
 import vtkAxesActor from '@kitware/vtk.js/Rendering/Core/AxesActor';
 // @ts-ignore
 import vtkProperty from '@kitware/vtk.js/Rendering/Core/Property';
+// @ts-ignore
+import vtkLookupTable from '@kitware/vtk.js/Common/Core/LookupTable';
+// @ts-ignore
+import vtkColorTransferFunction from '@kitware/vtk.js/Rendering/Core/ColorTransferFunction';
 
 import { MeshInfo } from './meshLoader';
 
@@ -40,6 +44,9 @@ export class VTKRenderer {
     private currentMapper: any = null;
     private orientationWidget: any = null;
     private renderMode: RenderMode = RenderMode.Surface;
+    private currentPolyData: any = null;
+    private currentMeshInfo: MeshInfo | null = null;
+    private materialColoringEnabled: boolean = true;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -267,10 +274,198 @@ export class VTKRenderer {
     }
 
     /**
+     * Generate distinct colors for materials
+     * Uses a categorical color scheme for clear visual distinction
+     */
+    private generateMaterialColors(numMaterials: number): number[][] {
+        const colors: number[][] = [];
+
+        // Predefined color palette for common material counts (up to 12 materials)
+        const categoricalColors = [
+            [0.89, 0.10, 0.11],  // Red
+            [0.22, 0.49, 0.72],  // Blue
+            [0.30, 0.69, 0.29],  // Green
+            [0.60, 0.31, 0.64],  // Purple
+            [1.00, 0.50, 0.00],  // Orange
+            [1.00, 1.00, 0.20],  // Yellow
+            [0.65, 0.34, 0.16],  // Brown
+            [0.97, 0.51, 0.75],  // Pink
+            [0.50, 0.50, 0.50],  // Gray
+            [0.60, 0.96, 0.60],  // Light Green
+            [0.75, 0.73, 0.85],  // Lavender
+            [1.00, 0.84, 0.00],  // Gold
+        ];
+
+        // Use categorical colors for small number of materials
+        if (numMaterials <= categoricalColors.length) {
+            return categoricalColors.slice(0, numMaterials);
+        }
+
+        // For larger number of materials, generate colors using HSV color space
+        for (let i = 0; i < numMaterials; i++) {
+            const hue = (i * 360 / numMaterials) % 360;
+            const saturation = 0.7 + (i % 3) * 0.1;  // Vary saturation slightly
+            const value = 0.8 + (i % 2) * 0.1;       // Vary brightness slightly
+
+            // Convert HSV to RGB
+            const rgb = this.hsvToRgb(hue, saturation, value);
+            colors.push(rgb);
+        }
+
+        return colors;
+    }
+
+    /**
+     * Convert HSV color to RGB
+     */
+    private hsvToRgb(h: number, s: number, v: number): number[] {
+        const c = v * s;
+        const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+        const m = v - c;
+
+        let r = 0, g = 0, b = 0;
+
+        if (h < 60) { r = c; g = x; b = 0; }
+        else if (h < 120) { r = x; g = c; b = 0; }
+        else if (h < 180) { r = 0; g = c; b = x; }
+        else if (h < 240) { r = 0; g = x; b = c; }
+        else if (h < 300) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+
+        return [r + m, g + m, b + m];
+    }
+
+    /**
+     * Create a lookup table for material coloring
+     */
+    private createMaterialLookupTable(meshInfo: MeshInfo): any {
+        if (!meshInfo.hasMaterials || !meshInfo.materialRange) {
+            return null;
+        }
+
+        const [minId, maxId] = meshInfo.materialRange;
+        const numMaterials = meshInfo.materials.length;
+
+        console.log(`Creating lookup table for ${numMaterials} materials (IDs ${minId}-${maxId})`);
+
+        // Generate colors for all materials
+        const colors = this.generateMaterialColors(numMaterials);
+
+        // Create lookup table
+        const lut = vtkLookupTable.newInstance();
+        lut.setRange(minId, maxId);
+
+        // Map each material ID to its color index
+        const materialIdToIndex = new Map<number, number>();
+        meshInfo.materials.forEach((mat, index) => {
+            materialIdToIndex.set(mat.id, index);
+        });
+
+        // Build color table as a flat array [R, G, B, A, R, G, B, A, ...]
+        const numColors = maxId - minId + 1;
+        const colorTable = new Float32Array(numColors * 4);
+
+        for (let id = minId; id <= maxId; id++) {
+            const idx = (id - minId) * 4;
+            const colorIndex = materialIdToIndex.get(id);
+
+            if (colorIndex !== undefined && colorIndex < colors.length) {
+                const color = colors[colorIndex];
+                colorTable[idx] = color[0];
+                colorTable[idx + 1] = color[1];
+                colorTable[idx + 2] = color[2];
+                colorTable[idx + 3] = 1.0;
+            } else {
+                // Fallback gray color for unmapped IDs
+                colorTable[idx] = 0.5;
+                colorTable[idx + 1] = 0.5;
+                colorTable[idx + 2] = 0.5;
+                colorTable[idx + 3] = 1.0;
+            }
+        }
+
+        // Set the color table
+        lut.setTable(colorTable);
+        lut.build();
+
+        return lut;
+    }
+
+    /**
+     * Apply material coloring to the current mapper
+     */
+    private applyMaterialColoring(meshInfo: MeshInfo): void {
+        if (!meshInfo.hasMaterials || !meshInfo.materialArrayName) {
+            return;
+        }
+
+        console.log(`Applying material coloring using field: ${meshInfo.materialArrayName}`);
+
+        try {
+            // Create lookup table
+            const lut = this.createMaterialLookupTable(meshInfo);
+            if (!lut) {
+                console.warn('Failed to create lookup table');
+                return;
+            }
+
+            // Set the mapper to use the material array for coloring
+            this.currentMapper.setLookupTable(lut);
+            this.currentMapper.setScalarModeToUseCellFieldData();
+            this.currentMapper.setColorByArrayName(meshInfo.materialArrayName);
+            this.currentMapper.setScalarVisibility(true);
+
+            console.log('Material coloring applied successfully');
+        } catch (error) {
+            console.error('Error applying material coloring:', error);
+        }
+    }
+
+    /**
+     * Toggle material coloring on/off
+     */
+    public setMaterialColoringEnabled(enabled: boolean): void {
+        this.materialColoringEnabled = enabled;
+
+        if (!this.currentPolyData || !this.currentMeshInfo) {
+            return;
+        }
+
+        // Reapply rendering
+        if (enabled && this.currentMeshInfo.hasMaterials) {
+            this.applyMaterialColoring(this.currentMeshInfo);
+        } else if (this.currentMapper) {
+            // Disable material coloring
+            this.currentMapper.setScalarVisibility(false);
+        }
+
+        this.renderWindow.render();
+        console.log(`Material coloring ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
+     * Get whether material coloring is enabled
+     */
+    public isMaterialColoringEnabled(): boolean {
+        return this.materialColoringEnabled;
+    }
+
+    /**
+     * Get the current mesh info
+     */
+    public getMeshInfo(): MeshInfo | null {
+        return this.currentMeshInfo;
+    }
+
+    /**
      * Display loaded mesh data
      */
     public displayMesh(polyData: any, meshInfo?: MeshInfo): void {
         console.log('Displaying loaded mesh...');
+
+        // Store current mesh data
+        this.currentPolyData = polyData;
+        this.currentMeshInfo = meshInfo || null;
 
         // Check mesh size and warn about performance
         if (meshInfo) {
@@ -295,6 +490,11 @@ export class VTKRenderer {
         if (meshInfo && meshInfo.numberOfCells > 100000) {
             console.log('Applying optimizations for large mesh...');
             this.currentMapper.setStatic(true);
+        }
+
+        // Apply material coloring if available
+        if (meshInfo && meshInfo.hasMaterials && this.materialColoringEnabled) {
+            this.applyMaterialColoring(meshInfo);
         }
 
         // Create actor
