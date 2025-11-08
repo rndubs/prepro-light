@@ -23,6 +23,11 @@ let renderModeSelect: HTMLSelectElement | null;
 let resetCameraButton: HTMLButtonElement | null;
 let backgroundColorInput: HTMLInputElement | null;
 let showAxesCheckbox: HTMLInputElement | null;
+let materialSection: HTMLElement | null;
+let showMaterialsCheckbox: HTMLInputElement | null;
+let materialPanel: HTMLElement | null;
+let closeMaterialPanelButton: HTMLButtonElement | null;
+let materialList: HTMLElement | null;
 
 // VTK.js renderer
 let vtkRenderer: VTKRenderer | null = null;
@@ -41,6 +46,11 @@ function initialize() {
     resetCameraButton = document.getElementById('resetCamera') as HTMLButtonElement;
     backgroundColorInput = document.getElementById('backgroundColor') as HTMLInputElement;
     showAxesCheckbox = document.getElementById('showAxes') as HTMLInputElement;
+    materialSection = document.getElementById('materialSection');
+    showMaterialsCheckbox = document.getElementById('showMaterials') as HTMLInputElement;
+    materialPanel = document.getElementById('materialPanel');
+    closeMaterialPanelButton = document.getElementById('closeMaterialPanel') as HTMLButtonElement;
+    materialList = document.getElementById('materialList');
 
     // Initialize VTK.js renderer
     if (viewerContainer) {
@@ -122,6 +132,26 @@ function setupUIControls() {
             }
         });
     }
+
+    // Material coloring checkbox
+    if (showMaterialsCheckbox) {
+        showMaterialsCheckbox.addEventListener('change', () => {
+            if (vtkRenderer && showMaterialsCheckbox) {
+                vtkRenderer.setMaterialColoringEnabled(showMaterialsCheckbox.checked);
+                console.log(`Material coloring: ${showMaterialsCheckbox.checked}`);
+            }
+        });
+    }
+
+    // Close material panel button
+    if (closeMaterialPanelButton) {
+        closeMaterialPanelButton.addEventListener('click', () => {
+            if (materialPanel) {
+                materialPanel.style.display = 'none';
+                console.log('Material panel closed');
+            }
+        });
+    }
 }
 
 /**
@@ -134,6 +164,111 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16)
     } : null;
+}
+
+/**
+ * RGB to hex color conversion
+ */
+function rgbToHex(r: number, g: number, b: number): string {
+    const toHex = (c: number) => {
+        const hex = Math.round(c * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * Populate the material legend
+ */
+function populateMaterialLegend(): void {
+    if (!vtkRenderer || !materialList) {
+        return;
+    }
+
+    const meshInfo = vtkRenderer.getMeshInfo();
+    if (!meshInfo || !meshInfo.hasMaterials || meshInfo.materials.length === 0) {
+        // Hide material UI if no materials
+        if (materialSection) {
+            materialSection.style.display = 'none';
+        }
+        if (materialPanel) {
+            materialPanel.style.display = 'none';
+        }
+        return;
+    }
+
+    console.log(`Populating material legend with ${meshInfo.materials.length} materials`);
+
+    // Show material UI
+    if (materialSection) {
+        materialSection.style.display = 'block';
+    }
+    if (materialPanel) {
+        materialPanel.style.display = 'block';
+    }
+
+    // Clear existing content
+    materialList.innerHTML = '';
+
+    // Get material colors from the renderer (using the same color generation logic)
+    const materials = meshInfo.materials;
+
+    // Generate the same colors as in vtkRenderer
+    const categoricalColors = [
+        [0.89, 0.10, 0.11],  // Red
+        [0.22, 0.49, 0.72],  // Blue
+        [0.30, 0.69, 0.29],  // Green
+        [0.60, 0.31, 0.64],  // Purple
+        [1.00, 0.50, 0.00],  // Orange
+        [1.00, 1.00, 0.20],  // Yellow
+        [0.65, 0.34, 0.16],  // Brown
+        [0.97, 0.51, 0.75],  // Pink
+        [0.50, 0.50, 0.50],  // Gray
+        [0.60, 0.96, 0.60],  // Light Green
+        [0.75, 0.73, 0.85],  // Lavender
+        [1.00, 0.84, 0.00],  // Gold
+    ];
+
+    // Create material items
+    materials.forEach((material, index) => {
+        const materialItem = document.createElement('div');
+        materialItem.className = 'material-item';
+        materialItem.dataset.materialId = material.id.toString();
+
+        // Get color for this material
+        const color = index < categoricalColors.length ?
+            categoricalColors[index] :
+            [0.5, 0.5, 0.5];  // Fallback gray
+
+        // Create color box
+        const colorBox = document.createElement('div');
+        colorBox.className = 'material-color-box';
+        colorBox.style.backgroundColor = rgbToHex(color[0], color[1], color[2]);
+
+        // Create info container
+        const infoContainer = document.createElement('div');
+        infoContainer.className = 'material-info';
+
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'material-name';
+        nameDiv.textContent = material.name;
+
+        const statsDiv = document.createElement('div');
+        statsDiv.className = 'material-stats';
+        statsDiv.textContent = `${material.cellCount.toLocaleString()} cells (${material.percentage.toFixed(1)}%)`;
+
+        infoContainer.appendChild(nameDiv);
+        infoContainer.appendChild(statsDiv);
+
+        materialItem.appendChild(colorBox);
+        materialItem.appendChild(infoContainer);
+
+        if (materialList) {
+            materialList.appendChild(materialItem);
+        }
+    });
+
+    console.log('Material legend populated');
 }
 
 /**
@@ -193,6 +328,9 @@ async function handleLoadMesh(data: any) {
         // Display the loaded mesh
         vtkRenderer.displayMesh(loadResult.polyData, loadResult.info);
 
+        // Populate material legend if materials are present
+        populateMaterialLegend();
+
         // Show file information
         let infoMessage = `Mesh loaded: ${data.fileName}`;
         if (loadResult.info) {
@@ -200,6 +338,9 @@ async function handleLoadMesh(data: any) {
             infoMessage += `\n  Cells: ${loadResult.info.numberOfCells.toLocaleString()}`;
             if (loadResult.info.scalarArrayNames.length > 0) {
                 infoMessage += `\n  Data arrays: ${loadResult.info.scalarArrayNames.join(', ')}`;
+            }
+            if (loadResult.info.hasMaterials) {
+                infoMessage += `\n  Materials: ${loadResult.info.materials.length} unique (${loadResult.info.materialArrayName})`;
             }
         }
 

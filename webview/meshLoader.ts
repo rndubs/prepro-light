@@ -25,6 +25,16 @@ export interface MeshLoadResult {
 }
 
 /**
+ * Material information for a unique material ID
+ */
+export interface MaterialInfo {
+    id: number;
+    name: string;
+    cellCount: number;
+    percentage: number;
+}
+
+/**
  * Mesh information
  */
 export interface MeshInfo {
@@ -34,6 +44,11 @@ export interface MeshInfo {
     hasScalars: boolean;
     hasVectors: boolean;
     scalarArrayNames: string[];
+    // Material data
+    hasMaterials: boolean;
+    materialArrayName?: string;
+    materials: MaterialInfo[];
+    materialRange?: [number, number];  // [min, max] material IDs
 }
 
 /**
@@ -150,7 +165,9 @@ function extractMeshInfo(polyData: any): MeshInfo {
         bounds: [0, 0, 0, 0, 0, 0],
         hasScalars: false,
         hasVectors: false,
-        scalarArrayNames: []
+        scalarArrayNames: [],
+        hasMaterials: false,
+        materials: []
     };
 
     try {
@@ -209,6 +226,9 @@ function extractMeshInfo(polyData: any): MeshInfo {
                     }
                 }
             }
+
+            // Extract material data if present
+            extractMaterialData(cellData, info);
         }
 
     } catch (error) {
@@ -216,6 +236,93 @@ function extractMeshInfo(polyData: any): MeshInfo {
     }
 
     return info;
+}
+
+/**
+ * Common material field names to look for in VTK files
+ */
+const MATERIAL_FIELD_NAMES = [
+    'MaterialIds',
+    'Material',
+    'material',
+    'MatId',
+    'mat',
+    'Region',
+    'RegionId',
+    'region',
+    'ElementBlock',
+    'ObjectId'
+];
+
+/**
+ * Extract material data from cell data
+ */
+function extractMaterialData(cellData: any, info: MeshInfo): void {
+    try {
+        // Search for material data array
+        let materialArray: any = null;
+        let materialArrayName: string = '';
+
+        // Check each common material field name
+        for (const fieldName of MATERIAL_FIELD_NAMES) {
+            const array = cellData.getArrayByName(fieldName);
+            if (array && array.getNumberOfComponents() === 1) {
+                materialArray = array;
+                materialArrayName = fieldName;
+                console.log(`Found material data in field: ${fieldName}`);
+                break;
+            }
+        }
+
+        // If no material array found, return
+        if (!materialArray) {
+            console.log('No material data found in mesh');
+            return;
+        }
+
+        info.hasMaterials = true;
+        info.materialArrayName = materialArrayName;
+
+        // Get the raw data array
+        const dataArray = materialArray.getData();
+        const numCells = info.numberOfCells;
+
+        // Count occurrences of each material ID
+        const materialCounts = new Map<number, number>();
+        let minId = Infinity;
+        let maxId = -Infinity;
+
+        for (let i = 0; i < numCells; i++) {
+            const materialId = Math.floor(dataArray[i]);  // Ensure integer
+            materialCounts.set(materialId, (materialCounts.get(materialId) || 0) + 1);
+
+            if (materialId < minId) minId = materialId;
+            if (materialId > maxId) maxId = materialId;
+        }
+
+        info.materialRange = [minId, maxId];
+
+        // Create MaterialInfo objects
+        const materials: MaterialInfo[] = [];
+        for (const [id, count] of materialCounts.entries()) {
+            materials.push({
+                id,
+                name: `Material ${id}`,
+                cellCount: count,
+                percentage: (count / numCells) * 100
+            });
+        }
+
+        // Sort by material ID
+        materials.sort((a, b) => a.id - b.id);
+        info.materials = materials;
+
+        console.log(`Found ${materials.length} unique materials (IDs ${minId}-${maxId})`);
+
+    } catch (error) {
+        console.error('Error extracting material data:', error);
+        info.hasMaterials = false;
+    }
 }
 
 /**
