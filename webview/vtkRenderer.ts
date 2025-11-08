@@ -49,7 +49,7 @@ export class VTKRenderer {
     private currentPolyData: any = null;
     private currentMeshInfo: MeshInfo | null = null;
     private materialColoringEnabled: boolean = true;
-    private contactSurfaceColoringEnabled: boolean = true;
+    private contactSurfaceColoringEnabled: boolean = false;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -247,9 +247,13 @@ export class VTKRenderer {
     public toggleOrientationWidget(enabled?: boolean): void {
         if (this.orientationWidget) {
             const isEnabled = enabled !== undefined ? enabled : !this.orientationWidget.getEnabled();
+            console.log(`toggleOrientationWidget called with enabled=${enabled}, setting to ${isEnabled}`);
             this.orientationWidget.setEnabled(isEnabled);
+            this.orientationWidget.updateMarkerOrientation();
             this.renderWindow.render();
-            console.log(`Orientation widget ${isEnabled ? 'enabled' : 'disabled'}`);
+            console.log(`Orientation widget ${isEnabled ? 'enabled' : 'disabled'}, current state: ${this.orientationWidget.getEnabled()}`);
+        } else {
+            console.warn('Orientation widget not available');
         }
     }
 
@@ -434,6 +438,30 @@ export class VTKRenderer {
     }
 
     /**
+     * Apply coloring based on current material and contact settings
+     */
+    private applyCurrentColoring(): void {
+        if (!this.currentMeshInfo || !this.currentMapper) {
+            return;
+        }
+
+        const meshInfo = this.currentMeshInfo;
+
+        // Determine which coloring to apply based on enabled flags
+        // Priority: contact surfaces override materials
+        if (this.contactSurfaceColoringEnabled && meshInfo.hasContactSurfaces) {
+            console.log('Applying contact surface coloring (may override materials)');
+            this.applyContactSurfaceColoring(meshInfo);
+        } else if (this.materialColoringEnabled && meshInfo.hasMaterials) {
+            console.log('Applying material coloring only');
+            this.applyMaterialColoring(meshInfo);
+        } else {
+            console.log('No coloring applied (using default)');
+            this.currentMapper.setScalarVisibility(false);
+        }
+    }
+
+    /**
      * Toggle material coloring on/off
      */
     public setMaterialColoringEnabled(enabled: boolean): void {
@@ -443,13 +471,8 @@ export class VTKRenderer {
             return;
         }
 
-        // Reapply rendering
-        if (enabled && this.currentMeshInfo.hasMaterials) {
-            this.applyMaterialColoring(this.currentMeshInfo);
-        } else if (this.currentMapper) {
-            // Disable material coloring
-            this.currentMapper.setScalarVisibility(false);
-        }
+        // Reapply coloring with new settings
+        this.applyCurrentColoring();
 
         this.renderWindow.render();
         console.log(`Material coloring ${enabled ? 'enabled' : 'disabled'}`);
@@ -611,17 +634,8 @@ export class VTKRenderer {
             return;
         }
 
-        // Reapply rendering
-        if (enabled && this.currentMeshInfo.hasContactSurfaces) {
-            this.applyContactSurfaceColoring(this.currentMeshInfo);
-        } else if (this.currentMapper) {
-            // Disable contact surface coloring - fall back to materials or default
-            if (this.materialColoringEnabled && this.currentMeshInfo.hasMaterials) {
-                this.applyMaterialColoring(this.currentMeshInfo);
-            } else {
-                this.currentMapper.setScalarVisibility(false);
-            }
-        }
+        // Reapply coloring with new settings
+        this.applyCurrentColoring();
 
         this.renderWindow.render();
         console.log(`Contact surface coloring ${enabled ? 'enabled' : 'disabled'}`);
@@ -679,22 +693,14 @@ export class VTKRenderer {
             this.currentMapper.setStatic(true);
         }
 
-        // Apply coloring (priority: contact surfaces > materials > default)
+        // Apply coloring based on current settings
         console.log('displayMesh: Checking coloring options');
         console.log(`  meshInfo.hasContactSurfaces: ${meshInfo?.hasContactSurfaces}`);
         console.log(`  meshInfo.hasMaterials: ${meshInfo?.hasMaterials}`);
         console.log(`  contactSurfaceColoringEnabled: ${this.contactSurfaceColoringEnabled}`);
         console.log(`  materialColoringEnabled: ${this.materialColoringEnabled}`);
 
-        if (meshInfo && meshInfo.hasContactSurfaces && this.contactSurfaceColoringEnabled) {
-            console.log('displayMesh: Applying contact surface coloring');
-            this.applyContactSurfaceColoring(meshInfo);
-        } else if (meshInfo && meshInfo.hasMaterials && this.materialColoringEnabled) {
-            console.log('displayMesh: Applying material coloring');
-            this.applyMaterialColoring(meshInfo);
-        } else {
-            console.log('displayMesh: No coloring applied (using default)');
-        }
+        this.applyCurrentColoring();
 
         // Create actor
         this.currentActor = vtkActor.newInstance();

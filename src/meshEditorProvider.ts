@@ -506,7 +506,7 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
             <div class="toolbar-section" id="contactSection" style="display: none;">
                 <div class="toolbar-label">Contact Surfaces</div>
                 <div class="checkbox-container">
-                    <input type="checkbox" id="showContacts" checked>
+                    <input type="checkbox" id="showContacts">
                     <label for="showContacts">Color by Contact</label>
                 </div>
             </div>
