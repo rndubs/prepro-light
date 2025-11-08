@@ -4,6 +4,10 @@
   "description": "Lightweight mesh preprocessing tool for visualizing finite element meshes, contact surfaces, and material assignments",
   "version": "0.1.0",
   "publisher": "prepro-light",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rndubs/prepro-light.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
