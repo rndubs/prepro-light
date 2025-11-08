@@ -28,6 +28,11 @@ let showMaterialsCheckbox: HTMLInputElement | null;
 let materialPanel: HTMLElement | null;
 let closeMaterialPanelButton: HTMLButtonElement | null;
 let materialList: HTMLElement | null;
+let contactSection: HTMLElement | null;
+let showContactsCheckbox: HTMLInputElement | null;
+let contactPanel: HTMLElement | null;
+let closeContactPanelButton: HTMLButtonElement | null;
+let contactList: HTMLElement | null;
 
 // VTK.js renderer
 let vtkRenderer: VTKRenderer | null = null;
@@ -51,6 +56,11 @@ function initialize() {
     materialPanel = document.getElementById('materialPanel');
     closeMaterialPanelButton = document.getElementById('closeMaterialPanel') as HTMLButtonElement;
     materialList = document.getElementById('materialList');
+    contactSection = document.getElementById('contactSection');
+    showContactsCheckbox = document.getElementById('showContacts') as HTMLInputElement;
+    contactPanel = document.getElementById('contactPanel');
+    closeContactPanelButton = document.getElementById('closeContactPanel') as HTMLButtonElement;
+    contactList = document.getElementById('contactList');
 
     // Initialize VTK.js renderer
     if (viewerContainer) {
@@ -149,6 +159,26 @@ function setupUIControls() {
             if (materialPanel) {
                 materialPanel.style.display = 'none';
                 console.log('Material panel closed');
+            }
+        });
+    }
+
+    // Contact surface coloring checkbox
+    if (showContactsCheckbox) {
+        showContactsCheckbox.addEventListener('change', () => {
+            if (vtkRenderer && showContactsCheckbox) {
+                vtkRenderer.setContactSurfaceColoringEnabled(showContactsCheckbox.checked);
+                console.log(`Contact surface coloring: ${showContactsCheckbox.checked}`);
+            }
+        });
+    }
+
+    // Close contact panel button
+    if (closeContactPanelButton) {
+        closeContactPanelButton.addEventListener('click', () => {
+            if (contactPanel) {
+                contactPanel.style.display = 'none';
+                console.log('Contact panel closed');
             }
         });
     }
@@ -272,6 +302,130 @@ function populateMaterialLegend(): void {
 }
 
 /**
+ * Populate the contact surface legend
+ */
+function populateContactSurfaceLegend(): void {
+    if (!vtkRenderer || !contactList) {
+        return;
+    }
+
+    const meshInfo = vtkRenderer.getMeshInfo();
+    if (!meshInfo || !meshInfo.hasContactSurfaces || meshInfo.contactPairs.length === 0) {
+        // Hide contact UI if no contact surfaces
+        if (contactSection) {
+            contactSection.style.display = 'none';
+        }
+        if (contactPanel) {
+            contactPanel.style.display = 'none';
+        }
+        return;
+    }
+
+    console.log(`Populating contact surface legend with ${meshInfo.contactPairs.length} pairs`);
+
+    // Show contact UI
+    if (contactSection) {
+        contactSection.style.display = 'block';
+    }
+    if (contactPanel) {
+        contactPanel.style.display = 'block';
+    }
+
+    // Clear existing content
+    contactList.innerHTML = '';
+
+    // Get the same colors as in vtkRenderer
+    const categoricalColors = [
+        [1.00, 0.27, 0.00],  // Orange Red
+        [0.00, 0.75, 1.00],  // Deep Sky Blue
+        [1.00, 0.84, 0.00],  // Gold
+        [0.50, 0.00, 0.50],  // Purple
+        [0.00, 1.00, 0.50],  // Spring Green
+        [1.00, 0.41, 0.71],  // Hot Pink
+        [0.82, 0.41, 0.12],  // Chocolate
+        [0.00, 1.00, 1.00],  // Cyan
+        [1.00, 0.65, 0.00],  // Orange
+        [0.54, 0.17, 0.89],  // Blue Violet
+        [0.13, 0.70, 0.67],  // Light Sea Green
+        [0.93, 0.51, 0.93],  // Violet
+    ];
+
+    // Create contact pair items
+    meshInfo.contactPairs.forEach((pair) => {
+        const pairDiv = document.createElement('div');
+        pairDiv.className = 'contact-pair';
+
+        // Pair header
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'contact-pair-header';
+        headerDiv.textContent = pair.name;
+        pairDiv.appendChild(headerDiv);
+
+        // Add master surface if present
+        if (pair.master) {
+            const masterDiv = createContactSurfaceElement(pair.master, categoricalColors, meshInfo.contactSurfaces);
+            pairDiv.appendChild(masterDiv);
+        }
+
+        // Add slave surface if present
+        if (pair.slave) {
+            const slaveDiv = createContactSurfaceElement(pair.slave, categoricalColors, meshInfo.contactSurfaces);
+            pairDiv.appendChild(slaveDiv);
+        }
+
+        if (contactList) {
+            contactList.appendChild(pairDiv);
+        }
+    });
+
+    console.log('Contact surface legend populated');
+}
+
+/**
+ * Create a contact surface element for the legend
+ */
+function createContactSurfaceElement(surface: any, categoricalColors: number[][], allSurfaces: any[]): HTMLElement {
+    const surfaceDiv = document.createElement('div');
+    surfaceDiv.className = 'contact-surface';
+    surfaceDiv.dataset.surfaceId = surface.id.toString();
+
+    // Get color for this surface
+    const surfaceIndex = allSurfaces.findIndex(s => s.id === surface.id);
+    const color = surfaceIndex < categoricalColors.length ?
+        categoricalColors[surfaceIndex] :
+        [0.5, 0.5, 0.5];  // Fallback gray
+
+    // Create color box
+    const colorBox = document.createElement('div');
+    colorBox.className = 'contact-color-box';
+    colorBox.style.backgroundColor = rgbToHex(color[0], color[1], color[2]);
+
+    // Create info container
+    const infoContainer = document.createElement('div');
+    infoContainer.className = 'contact-info';
+
+    const typeDiv = document.createElement('div');
+    typeDiv.className = 'contact-type';
+    typeDiv.textContent = surface.type || 'surface';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.textContent = `ID ${surface.id}`;
+
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'contact-stats';
+    statsDiv.textContent = `${surface.cellCount.toLocaleString()} cells (${surface.percentage.toFixed(1)}%)`;
+
+    infoContainer.appendChild(typeDiv);
+    infoContainer.appendChild(nameDiv);
+    infoContainer.appendChild(statsDiv);
+
+    surfaceDiv.appendChild(colorBox);
+    surfaceDiv.appendChild(infoContainer);
+
+    return surfaceDiv;
+}
+
+/**
  * Handle messages from the extension
  */
 function handleMessage(event: MessageEvent) {
@@ -331,6 +485,9 @@ async function handleLoadMesh(data: any) {
         // Populate material legend if materials are present
         populateMaterialLegend();
 
+        // Populate contact surface legend if contact surfaces are present
+        populateContactSurfaceLegend();
+
         // Show file information
         let infoMessage = `Mesh loaded: ${data.fileName}`;
         if (loadResult.info) {
@@ -341,6 +498,9 @@ async function handleLoadMesh(data: any) {
             }
             if (loadResult.info.hasMaterials) {
                 infoMessage += `\n  Materials: ${loadResult.info.materials.length} unique (${loadResult.info.materialArrayName})`;
+            }
+            if (loadResult.info.hasContactSurfaces) {
+                infoMessage += `\n  Contact surfaces: ${loadResult.info.contactSurfaces.length} in ${loadResult.info.contactPairs.length} pairs (${loadResult.info.contactSurfaceArrayName})`;
             }
         }
 

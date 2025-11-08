@@ -367,6 +367,100 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
             font-size: 10px;
             opacity: 0.7;
         }
+        #contactPanel {
+            position: absolute;
+            top: 10px;
+            left: 320px;
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            max-width: 350px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        #contactPanelHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            position: sticky;
+            top: 0;
+            background-color: var(--vscode-editor-background);
+            z-index: 1;
+        }
+        #contactPanelHeader h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        #closeContactPanel {
+            background: none;
+            color: var(--vscode-foreground);
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+        }
+        #closeContactPanel:hover {
+            background-color: var(--vscode-toolbar-hoverBackground);
+        }
+        #contactList {
+            padding: 8px;
+        }
+        .contact-pair {
+            margin-bottom: 12px;
+            padding: 8px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            background-color: var(--vscode-editor-background);
+        }
+        .contact-pair-header {
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 6px;
+            color: var(--vscode-foreground);
+        }
+        .contact-surface {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 6px;
+            border-radius: 3px;
+            margin-bottom: 2px;
+        }
+        .contact-surface:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .contact-color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+            border: 1px solid var(--vscode-panel-border);
+            flex-shrink: 0;
+        }
+        .contact-info {
+            flex: 1;
+            font-size: 11px;
+        }
+        .contact-type {
+            font-size: 9px;
+            opacity: 0.6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .contact-stats {
+            font-size: 10px;
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -408,6 +502,14 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     <label for="showMaterials">Color by Material</label>
                 </div>
             </div>
+
+            <div class="toolbar-section" id="contactSection" style="display: none;">
+                <div class="toolbar-label">Contact Surfaces</div>
+                <div class="checkbox-container">
+                    <input type="checkbox" id="showContacts" checked>
+                    <label for="showContacts">Color by Contact</label>
+                </div>
+            </div>
         </div>
 
         <div id="materialPanel" style="display: none;">
@@ -416,6 +518,14 @@ export class MeshEditorProvider implements vscode.CustomReadonlyEditorProvider {
                 <button id="closeMaterialPanel">×</button>
             </div>
             <div id="materialList"></div>
+        </div>
+
+        <div id="contactPanel" style="display: none;">
+            <div id="contactPanelHeader">
+                <h3>Contact Surfaces</h3>
+                <button id="closeContactPanel">×</button>
+            </div>
+            <div id="contactList"></div>
         </div>
     </div>
     <script nonce="${nonce}" src="${scriptUri}"></script>
