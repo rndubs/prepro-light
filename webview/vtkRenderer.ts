@@ -661,10 +661,20 @@ export class VTKRenderer {
         }
 
         // Apply coloring (priority: contact surfaces > materials > default)
+        console.log('displayMesh: Checking coloring options');
+        console.log(`  meshInfo.hasContactSurfaces: ${meshInfo?.hasContactSurfaces}`);
+        console.log(`  meshInfo.hasMaterials: ${meshInfo?.hasMaterials}`);
+        console.log(`  contactSurfaceColoringEnabled: ${this.contactSurfaceColoringEnabled}`);
+        console.log(`  materialColoringEnabled: ${this.materialColoringEnabled}`);
+
         if (meshInfo && meshInfo.hasContactSurfaces && this.contactSurfaceColoringEnabled) {
+            console.log('displayMesh: Applying contact surface coloring');
             this.applyContactSurfaceColoring(meshInfo);
         } else if (meshInfo && meshInfo.hasMaterials && this.materialColoringEnabled) {
+            console.log('displayMesh: Applying material coloring');
             this.applyMaterialColoring(meshInfo);
+        } else {
+            console.log('displayMesh: No coloring applied (using default)');
         }
 
         // Create actor
