@@ -706,12 +706,23 @@ export class VTKRenderer {
 
         // Add actor to renderer
         this.renderer.addActor(this.currentActor);
+        console.log('displayMesh: Actor added to renderer');
 
         // Reset camera to fit the scene
+        console.log('displayMesh: Resetting camera...');
+        console.log('displayMesh: Mesh bounds:', meshInfo?.bounds);
         this.renderer.resetCamera();
 
+        // Get camera position after reset
+        const camera = this.renderer.getActiveCamera();
+        console.log('displayMesh: Camera position:', camera.getPosition());
+        console.log('displayMesh: Camera focal point:', camera.getFocalPoint());
+        console.log('displayMesh: Camera view up:', camera.getViewUp());
+
         // Render the scene
+        console.log('displayMesh: Rendering scene...');
         this.renderWindow.render();
+        console.log('displayMesh: Scene rendered');
 
         if (meshInfo) {
             console.log('Mesh statistics:', {
