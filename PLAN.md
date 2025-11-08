@@ -340,7 +340,7 @@ suite('Mesh Loading Integration Tests', () => {
   - [ ] Highlight all cells with same material
   - [ ] Export material statistics
 
-**Deliverable:** Extension that visualizes and explores material assignments ✅
+**Deliverable:** Extension that visualizes and explores material assignments ⚠️
 
 **Implementation Summary:**
 - **Material Data Parsing:** Automatically detects common material field names in VTK cell data
@@ -349,11 +349,28 @@ suite('Mesh Loading Integration Tests', () => {
 - **UI Components:** Material legend panel with color indicators and statistics
 - **Material Info:** Displays material ID, name, cell count, and percentage
 - **Toggle Control:** Checkbox to enable/disable material coloring
+- **Testing:** Added comprehensive material visualization test suite (6 tests)
+- **Diagnostics:** Added debug logging for material data extraction and rendering
+
+**Status Update (2025-11-08) - RESOLVED:**
+- ✅ **ROOT CAUSE FOUND**: VTK.js v30.0.0 XMLPolyDataReader breaks with XML comments inside `<DataArray>` sections
+- ✅ **FIXED**: Material coloring now works correctly (vtkDataArray wrapper bug resolved)
+- ⚠️ **SAMPLE FILES**: Original material sample files have XML comments that break VTK.js parser
+- ✅ **WORKAROUND**: Created `test_materials_fixed.vtp` without XML comments - meshes now display with material colors
+- Added extensive debug logging for material data extraction and rendering
+- Created `test/suite/materials.test.ts` with 6 integration tests
+- Created `MATERIAL_ANALYSIS.md` with comprehensive diagnostic guide
+
+**Critical Bugs Fixed:**
+1. **setTable() TypeError**: VTK.js expects vtkDataArray, not Uint8Array - wrapped color tables in vtkDataArray.newInstance()
+2. **XML Comments Bug**: VTK.js XMLPolyDataReader corrupts geometry when XML comments appear inside `<DataArray>` tags - bounds become [0,0,0,1,0,0] making mesh invisible
 
 **Notes:**
 - Tasks 5.4 and 5.5 deferred as they are advanced features not required for basic material visualization
 - Material filtering and inspection can be added in a future phase if needed
 - Current implementation provides solid foundation for material visualization
+- ⚠️ **VTK.js Limitation**: v30.0.0 XMLPolyDataReader cannot handle XML comments in `<DataArray>` sections - remove comments from data sections in VTP files
+- Original sample files (test_materials.vtp, multi_material_cubes.vtp, complex_materials.vtp) should be regenerated without comments
 
 ---
 

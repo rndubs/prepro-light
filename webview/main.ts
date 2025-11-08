@@ -477,16 +477,26 @@ async function handleLoadMesh(data: any) {
         }
 
         // Hide loading indicator
+        console.log('handleLoadMesh: About to hide loading...');
         hideLoading();
+        console.log('handleLoadMesh: Loading hidden');
 
         // Display the loaded mesh
+        console.log('handleLoadMesh: About to display mesh...');
+        console.log('handleLoadMesh: polyData:', loadResult.polyData);
+        console.log('handleLoadMesh: meshInfo:', loadResult.info);
         vtkRenderer.displayMesh(loadResult.polyData, loadResult.info);
+        console.log('handleLoadMesh: Mesh displayed');
 
         // Populate material legend if materials are present
+        console.log('handleLoadMesh: Populating material legend...');
         populateMaterialLegend();
+        console.log('handleLoadMesh: Material legend populated');
 
         // Populate contact surface legend if contact surfaces are present
+        console.log('handleLoadMesh: Populating contact surface legend...');
         populateContactSurfaceLegend();
+        console.log('handleLoadMesh: Contact surface legend populated');
 
         // Show file information
         let infoMessage = `Mesh loaded: ${data.fileName}`;

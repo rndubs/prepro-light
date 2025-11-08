@@ -161,10 +161,28 @@ export async function loadMeshFile(
             };
         }
 
+        // Debug: Log polyData structure
+        console.log('PolyData loaded:', polyData);
+        if (polyData.getCellData) {
+            const cellData = polyData.getCellData();
+            console.log('CellData:', cellData);
+            if (cellData) {
+                const numArrays = cellData.getNumberOfArrays();
+                console.log(`Number of cell data arrays: ${numArrays}`);
+                for (let i = 0; i < numArrays; i++) {
+                    const array = cellData.getArrayByIndex(i);
+                    if (array) {
+                        console.log(`  Array ${i}: ${array.getName()}, components: ${array.getNumberOfComponents()}, values: ${array.getNumberOfTuples()}`);
+                    }
+                }
+            }
+        }
+
         // Extract mesh information
         const info = extractMeshInfo(polyData);
 
         console.log('Mesh loaded successfully:', info);
+        console.log('Mesh bounds explicitly:', info.bounds);
 
         return {
             success: true,
@@ -212,6 +230,7 @@ function extractMeshInfo(polyData: any): MeshInfo {
 
         if (polyData.getBounds) {
             info.bounds = polyData.getBounds();
+            console.log('extractMeshInfo: polyData.getBounds() returned:', info.bounds);
         }
 
         // Check for point data
@@ -292,24 +311,34 @@ const MATERIAL_FIELD_NAMES = [
  */
 function extractMaterialData(cellData: any, info: MeshInfo): void {
     try {
+        console.log('extractMaterialData: Starting material data extraction');
+        console.log('extractMaterialData: CellData object:', cellData);
+
         // Search for material data array
         let materialArray: any = null;
         let materialArrayName: string = '';
 
         // Check each common material field name
+        console.log('extractMaterialData: Checking for material field names:', MATERIAL_FIELD_NAMES);
         for (const fieldName of MATERIAL_FIELD_NAMES) {
+            console.log(`extractMaterialData: Checking field '${fieldName}'`);
             const array = cellData.getArrayByName(fieldName);
-            if (array && array.getNumberOfComponents() === 1) {
-                materialArray = array;
-                materialArrayName = fieldName;
-                console.log(`Found material data in field: ${fieldName}`);
-                break;
+            console.log(`extractMaterialData: Array for '${fieldName}':`, array);
+            if (array) {
+                const numComponents = array.getNumberOfComponents();
+                console.log(`extractMaterialData: '${fieldName}' has ${numComponents} components`);
+                if (numComponents === 1) {
+                    materialArray = array;
+                    materialArrayName = fieldName;
+                    console.log(`Found material data in field: ${fieldName}`);
+                    break;
+                }
             }
         }
 
         // If no material array found, return
         if (!materialArray) {
-            console.log('No material data found in mesh');
+            console.log('No material data found in mesh (no matching field names)');
             return;
         }
 

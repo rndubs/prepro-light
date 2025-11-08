@@ -25,6 +25,8 @@ import vtkProperty from '@kitware/vtk.js/Rendering/Core/Property';
 import vtkLookupTable from '@kitware/vtk.js/Common/Core/LookupTable';
 // @ts-ignore
 import vtkColorTransferFunction from '@kitware/vtk.js/Rendering/Core/ColorTransferFunction';
+// @ts-ignore
+import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
 
 import { MeshInfo } from './meshLoader';
 
@@ -387,8 +389,15 @@ export class VTKRenderer {
             }
         }
 
+        // Wrap the color table in a vtkDataArray (VTK.js requirement)
+        const colorDataArray = vtkDataArray.newInstance({
+            numberOfComponents: 4,
+            values: colorTable,
+            dataType: 'Uint8Array'
+        });
+
         // Set the color table
-        lut.setTable(colorTable);
+        lut.setTable(colorDataArray);
         lut.build();
 
         return lut;
@@ -548,8 +557,15 @@ export class VTKRenderer {
             }
         }
 
+        // Wrap the color table in a vtkDataArray (VTK.js requirement)
+        const colorDataArray = vtkDataArray.newInstance({
+            numberOfComponents: 4,
+            values: colorTable,
+            dataType: 'Uint8Array'
+        });
+
         // Set the color table
-        lut.setTable(colorTable);
+        lut.setTable(colorDataArray);
         lut.build();
 
         return lut;
@@ -650,6 +666,9 @@ export class VTKRenderer {
         this.currentMapper = vtkMapper.newInstance();
         this.currentMapper.setInputData(polyData);
 
+        // Debug: Check polyData bounds directly
+        console.log('displayMesh: polyData.getBounds() =', polyData.getBounds ? polyData.getBounds() : 'no getBounds method');
+
         // Configure mapper for better performance with large meshes
         this.currentMapper.setResolveCoincidentTopologyToPolygonOffset();
         this.currentMapper.setResolveCoincidentTopologyPolygonOffsetParameters(1, 1);
@@ -661,10 +680,20 @@ export class VTKRenderer {
         }
 
         // Apply coloring (priority: contact surfaces > materials > default)
+        console.log('displayMesh: Checking coloring options');
+        console.log(`  meshInfo.hasContactSurfaces: ${meshInfo?.hasContactSurfaces}`);
+        console.log(`  meshInfo.hasMaterials: ${meshInfo?.hasMaterials}`);
+        console.log(`  contactSurfaceColoringEnabled: ${this.contactSurfaceColoringEnabled}`);
+        console.log(`  materialColoringEnabled: ${this.materialColoringEnabled}`);
+
         if (meshInfo && meshInfo.hasContactSurfaces && this.contactSurfaceColoringEnabled) {
+            console.log('displayMesh: Applying contact surface coloring');
             this.applyContactSurfaceColoring(meshInfo);
         } else if (meshInfo && meshInfo.hasMaterials && this.materialColoringEnabled) {
+            console.log('displayMesh: Applying material coloring');
             this.applyMaterialColoring(meshInfo);
+        } else {
+            console.log('displayMesh: No coloring applied (using default)');
         }
 
         // Create actor
@@ -680,12 +709,23 @@ export class VTKRenderer {
 
         // Add actor to renderer
         this.renderer.addActor(this.currentActor);
+        console.log('displayMesh: Actor added to renderer');
 
         // Reset camera to fit the scene
+        console.log('displayMesh: Resetting camera...');
+        console.log('displayMesh: Mesh bounds:', meshInfo?.bounds);
         this.renderer.resetCamera();
 
+        // Get camera position after reset
+        const camera = this.renderer.getActiveCamera();
+        console.log('displayMesh: Camera position:', camera.getPosition());
+        console.log('displayMesh: Camera focal point:', camera.getFocalPoint());
+        console.log('displayMesh: Camera view up:', camera.getViewUp());
+
         // Render the scene
+        console.log('displayMesh: Rendering scene...');
         this.renderWindow.render();
+        console.log('displayMesh: Scene rendered');
 
         if (meshInfo) {
             console.log('Mesh statistics:', {
