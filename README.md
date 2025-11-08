@@ -57,6 +57,35 @@ A lightweight VS Code extension for visualizing finite element meshes, contact s
 - **Lint**: `npm run lint` - Run ESLint on source files
 - **Package**: `npm run build` - Build for production
 
+### Building a .vsix Package
+
+To create a distributable `.vsix` package for installation:
+
+1. Install the `vsce` packaging tool (if not already installed):
+   ```bash
+   npm install -g @vscode/vsce
+   ```
+
+2. Build the `.vsix` package:
+   ```bash
+   vsce package
+   ```
+
+   This will create a file like `prepro-light-0.1.0.vsix` in the project root.
+
+3. Install the `.vsix` package:
+
+   **Via command line:**
+   ```bash
+   code --install-extension prepro-light-0.1.0.vsix
+   ```
+
+   **Via VS Code UI:**
+   - Open the Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
+   - Click the "..." menu at the top
+   - Select "Install from VSIX..."
+   - Choose your `.vsix` file
+
 ### Debugging
 
 1. Set breakpoints in the source code

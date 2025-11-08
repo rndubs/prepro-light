@@ -1,0 +1,35 @@
+# Source files (bundled output is in dist/)
+src/**
+webview/**/*.ts
+test/**
+
+# Build configuration
+tsconfig*.json
+webpack.config.js
+
+# Development files
+.vscode/**
+.gitignore
+*.log
+
+# Documentation (internal development)
+RESEARCH.md
+PLAN.md
+CLAUDE.md
+
+# Sample files (for development/testing only)
+samples/**
+
+# Dependencies (bundled in dist/)
+node_modules/**
+
+# CI/CD
+.github/**
+
+# Editor files
+.editorconfig
+.eslintrc.json
+
+# Misc
+*.vsix
+.DS_Store
