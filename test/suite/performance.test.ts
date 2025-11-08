@@ -48,12 +48,22 @@ suite('Performance Tests', () => {
     });
 
     // Print results after all tests
-    suiteTeardown(function() {
+    suiteTeardown(async function() {
         printPerformanceResults(results);
+
+        // Pause for 15 seconds to allow copying console output
+        console.log('\n⏸️  Pausing for 15 seconds to allow copying console output...');
+        console.log('    The test window will close automatically after the pause.\n');
+        await wait(15000);
+        console.log('✅ Pause complete. Test window will now close.');
     });
 
     /**
      * Helper to open a mesh file and measure load time
+     *
+     * Note: This test measures editor opening time, not actual mesh loading success.
+     * Actual mesh loading errors will appear in the VS Code Developer Console.
+     * To see real loading status, check the browser/Electron console output.
      */
     async function measureFileLoad(filePath: string): Promise<PerformanceResult> {
         const fileName = path.basename(filePath);
@@ -65,7 +75,7 @@ suite('Performance Tests', () => {
         const nodeCount = match ? match[1] : 'unknown';
         const format = match ? match[2].toUpperCase() : path.extname(filePath).slice(1).toUpperCase();
 
-        // Check if file exceeds size limit (100 MB)
+        // Check if file exceeds general size limit (100 MB)
         const MAX_FILE_SIZE_MB = 100;
         if (fileSizeMB > MAX_FILE_SIZE_MB) {
             return {
@@ -77,6 +87,21 @@ suite('Performance Tests', () => {
                 success: false,
                 skipped: true,
                 skipReason: `File exceeds ${MAX_FILE_SIZE_MB} MB limit`
+            };
+        }
+
+        // Check VTP-specific size limit (ASCII VTP files have lower limits due to parsing)
+        const MAX_VTP_SIZE_MB = 30;
+        if (format === 'VTP' && fileSizeMB > MAX_VTP_SIZE_MB) {
+            return {
+                fileName,
+                fileSizeMB: parseFloat(fileSizeMB.toFixed(2)),
+                nodeCount,
+                format,
+                loadTimeMs: 0,
+                success: false,
+                skipped: true,
+                skipReason: `ASCII VTP file exceeds ${MAX_VTP_SIZE_MB} MB browser parsing limit`
             };
         }
 
@@ -100,6 +125,10 @@ suite('Performance Tests', () => {
             // Verify an editor opened
             const activeEditor = vscode.window.tabGroups.activeTabGroup.activeTab;
             const success = !!activeEditor;
+
+            // NOTE: This only confirms the editor opened, not that the mesh loaded successfully.
+            // Check the Developer Console for actual loading errors from the webview.
+            console.log(`Opened ${fileName} - Check webview console for actual load status`);
 
             return {
                 fileName,
@@ -175,12 +204,25 @@ suite('Performance Tests', () => {
                 // Increase timeout for larger files
                 this.timeout(30000);
 
+                console.log(`\n📂 Testing: ${fileName}...`);
                 const result = await measureFileLoad(filePath);
                 results.push(result);
 
                 if (result.skipped) {
+                    console.log(`⏭️  Skipped: ${fileName} - ${result.skipReason}`);
                     this.skip();
                     return;
+                }
+
+                // Log the result (success or failure)
+                if (result.success) {
+                    console.log(
+                        `✅ ${fileName}: ${result.loadTimeMs}ms (${result.fileSizeMB} MB)`
+                    );
+                } else {
+                    console.log(
+                        `❌ ${fileName}: FAILED - ${result.error || 'Unknown error'}`
+                    );
                 }
 
                 // Assert that the file loaded successfully
@@ -189,11 +231,6 @@ suite('Performance Tests', () => {
                         `Failed to load ${fileName}: ${result.error || 'Unknown error'}`
                     );
                 }
-
-                // Log the result
-                console.log(
-                    `✓ ${fileName}: ${result.loadTimeMs}ms (${result.fileSizeMB} MB)`
-                );
             });
         });
     }

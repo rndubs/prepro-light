@@ -53,6 +53,20 @@ export async function loadMeshFile(
             case '.vtp':
                 reader = vtkXMLPolyDataReader.newInstance();
                 console.log('Using vtkXMLPolyDataReader for VTP file');
+
+                // Check file size for ASCII VTP files - large ASCII XML files can cause
+                // "Invalid array length" errors in the browser due to JavaScript TypedArray limits
+                // Binary VTP files don't have this issue, but our generator creates ASCII
+                const MAX_VTP_SIZE_MB = 30; // Conservative limit for ASCII VTP files
+                const fileSizeMB = fileContent.length / (1024 * 1024);
+
+                if (fileSizeMB > MAX_VTP_SIZE_MB) {
+                    console.warn(`VTP file is ${fileSizeMB.toFixed(2)} MB, which may exceed browser parsing limits`);
+                    return {
+                        success: false,
+                        error: `VTP file too large (${fileSizeMB.toFixed(2)} MB). ASCII VTP files are limited to ${MAX_VTP_SIZE_MB} MB in the browser. Please use STL or OBJ format for large meshes, or convert to binary VTP format.`
+                    };
+                }
                 break;
 
             case '.vtu':
