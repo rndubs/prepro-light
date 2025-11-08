@@ -25,6 +25,8 @@ import vtkProperty from '@kitware/vtk.js/Rendering/Core/Property';
 import vtkLookupTable from '@kitware/vtk.js/Common/Core/LookupTable';
 // @ts-ignore
 import vtkColorTransferFunction from '@kitware/vtk.js/Rendering/Core/ColorTransferFunction';
+// @ts-ignore
+import vtkDataArray from '@kitware/vtk.js/Common/Core/DataArray';
 
 import { MeshInfo } from './meshLoader';
 
@@ -387,8 +389,15 @@ export class VTKRenderer {
             }
         }
 
+        // Wrap the color table in a vtkDataArray (VTK.js requirement)
+        const colorDataArray = vtkDataArray.newInstance({
+            numberOfComponents: 4,
+            values: colorTable,
+            dataType: 'Uint8Array'
+        });
+
         // Set the color table
-        lut.setTable(colorTable);
+        lut.setTable(colorDataArray);
         lut.build();
 
         return lut;
@@ -548,8 +557,15 @@ export class VTKRenderer {
             }
         }
 
+        // Wrap the color table in a vtkDataArray (VTK.js requirement)
+        const colorDataArray = vtkDataArray.newInstance({
+            numberOfComponents: 4,
+            values: colorTable,
+            dataType: 'Uint8Array'
+        });
+
         // Set the color table
-        lut.setTable(colorTable);
+        lut.setTable(colorDataArray);
         lut.build();
 
         return lut;
