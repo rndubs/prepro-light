@@ -666,6 +666,9 @@ export class VTKRenderer {
         this.currentMapper = vtkMapper.newInstance();
         this.currentMapper.setInputData(polyData);
 
+        // Debug: Check polyData bounds directly
+        console.log('displayMesh: polyData.getBounds() =', polyData.getBounds ? polyData.getBounds() : 'no getBounds method');
+
         // Configure mapper for better performance with large meshes
         this.currentMapper.setResolveCoincidentTopologyToPolygonOffset();
         this.currentMapper.setResolveCoincidentTopologyPolygonOffsetParameters(1, 1);

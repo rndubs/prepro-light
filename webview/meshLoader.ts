@@ -182,6 +182,7 @@ export async function loadMeshFile(
         const info = extractMeshInfo(polyData);
 
         console.log('Mesh loaded successfully:', info);
+        console.log('Mesh bounds explicitly:', info.bounds);
 
         return {
             success: true,
@@ -229,6 +230,7 @@ function extractMeshInfo(polyData: any): MeshInfo {
 
         if (polyData.getBounds) {
             info.bounds = polyData.getBounds();
+            console.log('extractMeshInfo: polyData.getBounds() returned:', info.bounds);
         }
 
         // Check for point data
