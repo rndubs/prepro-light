@@ -47,6 +47,7 @@ export class VTKRenderer {
     private currentPolyData: any = null;
     private currentMeshInfo: MeshInfo | null = null;
     private materialColoringEnabled: boolean = true;
+    private contactSurfaceColoringEnabled: boolean = true;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -451,6 +452,169 @@ export class VTKRenderer {
     }
 
     /**
+     * Generate distinct colors for contact surfaces
+     * Uses a different color scheme than materials to avoid confusion
+     */
+    private generateContactSurfaceColors(numSurfaces: number): number[][] {
+        const colors: number[][] = [];
+
+        // Use a color palette that visually distinguishes contact surfaces
+        // Using warmer tones and different hues from materials
+        const categoricalColors = [
+            [1.00, 0.27, 0.00],  // Orange Red
+            [0.00, 0.75, 1.00],  // Deep Sky Blue
+            [1.00, 0.84, 0.00],  // Gold
+            [0.50, 0.00, 0.50],  // Purple
+            [0.00, 1.00, 0.50],  // Spring Green
+            [1.00, 0.41, 0.71],  // Hot Pink
+            [0.82, 0.41, 0.12],  // Chocolate
+            [0.00, 1.00, 1.00],  // Cyan
+            [1.00, 0.65, 0.00],  // Orange
+            [0.54, 0.17, 0.89],  // Blue Violet
+            [0.13, 0.70, 0.67],  // Light Sea Green
+            [0.93, 0.51, 0.93],  // Violet
+        ];
+
+        // Use categorical colors for small number of surfaces
+        if (numSurfaces <= categoricalColors.length) {
+            return categoricalColors.slice(0, numSurfaces);
+        }
+
+        // For larger number of surfaces, generate colors using HSV color space
+        // Start from different hue offset than materials
+        for (let i = 0; i < numSurfaces; i++) {
+            const hue = ((i * 360 / numSurfaces) + 30) % 360;  // +30 offset from materials
+            const saturation = 0.8 + (i % 3) * 0.05;  // Higher saturation
+            const value = 0.9 + (i % 2) * 0.05;       // Brighter
+
+            // Convert HSV to RGB
+            const rgb = this.hsvToRgb(hue, saturation, value);
+            colors.push(rgb);
+        }
+
+        return colors;
+    }
+
+    /**
+     * Create a lookup table for contact surface coloring
+     */
+    private createContactSurfaceLookupTable(meshInfo: MeshInfo): any {
+        if (!meshInfo.hasContactSurfaces || !meshInfo.contactRange) {
+            return null;
+        }
+
+        const [minId, maxId] = meshInfo.contactRange;
+        const numSurfaces = meshInfo.contactSurfaces.length;
+
+        console.log(`Creating lookup table for ${numSurfaces} contact surfaces (IDs ${minId}-${maxId})`);
+
+        // Generate colors for all contact surfaces
+        const colors = this.generateContactSurfaceColors(numSurfaces);
+
+        // Create lookup table
+        const lut = vtkLookupTable.newInstance();
+        lut.setRange(minId, maxId);
+
+        // Map each contact surface ID to its color index
+        const contactIdToIndex = new Map<number, number>();
+        meshInfo.contactSurfaces.forEach((surface, index) => {
+            contactIdToIndex.set(surface.id, index);
+        });
+
+        // Build color table as a flat array [R, G, B, A, R, G, B, A, ...]
+        const numColors = maxId - minId + 1;
+        const colorTable = new Float32Array(numColors * 4);
+
+        for (let id = minId; id <= maxId; id++) {
+            const idx = (id - minId) * 4;
+            const colorIndex = contactIdToIndex.get(id);
+
+            if (colorIndex !== undefined && colorIndex < colors.length) {
+                const color = colors[colorIndex];
+                colorTable[idx] = color[0];
+                colorTable[idx + 1] = color[1];
+                colorTable[idx + 2] = color[2];
+                colorTable[idx + 3] = 1.0;
+            } else {
+                // Transparent for unmapped IDs (ID 0 = no contact)
+                colorTable[idx] = 0.0;
+                colorTable[idx + 1] = 0.0;
+                colorTable[idx + 2] = 0.0;
+                colorTable[idx + 3] = 0.0;
+            }
+        }
+
+        // Set the color table
+        lut.setTable(colorTable);
+        lut.build();
+
+        return lut;
+    }
+
+    /**
+     * Apply contact surface coloring to the current mapper
+     */
+    private applyContactSurfaceColoring(meshInfo: MeshInfo): void {
+        if (!meshInfo.hasContactSurfaces || !meshInfo.contactSurfaceArrayName) {
+            return;
+        }
+
+        console.log(`Applying contact surface coloring using field: ${meshInfo.contactSurfaceArrayName}`);
+
+        try {
+            // Create lookup table
+            const lut = this.createContactSurfaceLookupTable(meshInfo);
+            if (!lut) {
+                console.warn('Failed to create contact surface lookup table');
+                return;
+            }
+
+            // Set the mapper to use the contact surface array for coloring
+            this.currentMapper.setLookupTable(lut);
+            this.currentMapper.setScalarModeToUseCellFieldData();
+            this.currentMapper.setColorByArrayName(meshInfo.contactSurfaceArrayName);
+            this.currentMapper.setScalarVisibility(true);
+
+            console.log('Contact surface coloring applied successfully');
+        } catch (error) {
+            console.error('Error applying contact surface coloring:', error);
+        }
+    }
+
+    /**
+     * Toggle contact surface coloring on/off
+     */
+    public setContactSurfaceColoringEnabled(enabled: boolean): void {
+        this.contactSurfaceColoringEnabled = enabled;
+
+        if (!this.currentPolyData || !this.currentMeshInfo) {
+            return;
+        }
+
+        // Reapply rendering
+        if (enabled && this.currentMeshInfo.hasContactSurfaces) {
+            this.applyContactSurfaceColoring(this.currentMeshInfo);
+        } else if (this.currentMapper) {
+            // Disable contact surface coloring - fall back to materials or default
+            if (this.materialColoringEnabled && this.currentMeshInfo.hasMaterials) {
+                this.applyMaterialColoring(this.currentMeshInfo);
+            } else {
+                this.currentMapper.setScalarVisibility(false);
+            }
+        }
+
+        this.renderWindow.render();
+        console.log(`Contact surface coloring ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
+     * Get whether contact surface coloring is enabled
+     */
+    public isContactSurfaceColoringEnabled(): boolean {
+        return this.contactSurfaceColoringEnabled;
+    }
+
+    /**
      * Get the current mesh info
      */
     public getMeshInfo(): MeshInfo | null {
@@ -492,8 +656,10 @@ export class VTKRenderer {
             this.currentMapper.setStatic(true);
         }
 
-        // Apply material coloring if available
-        if (meshInfo && meshInfo.hasMaterials && this.materialColoringEnabled) {
+        // Apply coloring (priority: contact surfaces > materials > default)
+        if (meshInfo && meshInfo.hasContactSurfaces && this.contactSurfaceColoringEnabled) {
+            this.applyContactSurfaceColoring(meshInfo);
+        } else if (meshInfo && meshInfo.hasMaterials && this.materialColoringEnabled) {
             this.applyMaterialColoring(meshInfo);
         }
 

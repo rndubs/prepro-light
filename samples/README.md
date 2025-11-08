@@ -4,9 +4,21 @@ This directory contains sample mesh files for testing the Prepro Light extension
 
 ## Files
 
+### Basic Geometry
 - **simple_cube.vtp** - A simple cube in VTK PolyData XML format
+- **cube.vtp** - A cube mesh for testing
+- **sphere.vtp** - A sphere mesh for testing
 - **simple_triangle.stl** - A simple triangle mesh in STL ASCII format
 - **simple_cube.obj** - A simple cube in Wavefront OBJ format
+
+### Material Data (Phase 5)
+- **test_materials.vtp** - Mesh with material assignment data
+- **multi_material_cubes.vtp** - Multiple cubes with different materials
+- **complex_materials.vtp** - Complex mesh with multiple materials
+
+### Contact Surface Data (Phase 6)
+- **contact_surfaces.vtp** - Mesh with contact surface IDs (3 contact surfaces)
+- **contact_pairs.vtp** - Mesh with contact surface pairs (4 contact surfaces in 2 pairs)
 
 ## Supported Formats
 

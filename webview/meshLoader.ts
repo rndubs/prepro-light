@@ -35,6 +35,27 @@ export interface MaterialInfo {
 }
 
 /**
+ * Contact surface information
+ */
+export interface ContactSurfaceInfo {
+    id: number;
+    name: string;
+    cellCount: number;
+    percentage: number;
+    type?: 'master' | 'slave' | 'self';  // Contact surface type
+}
+
+/**
+ * Contact pair information
+ */
+export interface ContactPairInfo {
+    id: number;
+    name: string;
+    master?: ContactSurfaceInfo;
+    slave?: ContactSurfaceInfo;
+}
+
+/**
  * Mesh information
  */
 export interface MeshInfo {
@@ -49,6 +70,12 @@ export interface MeshInfo {
     materialArrayName?: string;
     materials: MaterialInfo[];
     materialRange?: [number, number];  // [min, max] material IDs
+    // Contact surface data
+    hasContactSurfaces: boolean;
+    contactSurfaceArrayName?: string;
+    contactSurfaces: ContactSurfaceInfo[];
+    contactPairs: ContactPairInfo[];
+    contactRange?: [number, number];  // [min, max] contact IDs
 }
 
 /**
@@ -167,7 +194,10 @@ function extractMeshInfo(polyData: any): MeshInfo {
         hasVectors: false,
         scalarArrayNames: [],
         hasMaterials: false,
-        materials: []
+        materials: [],
+        hasContactSurfaces: false,
+        contactSurfaces: [],
+        contactPairs: []
     };
 
     try {
@@ -229,6 +259,9 @@ function extractMeshInfo(polyData: any): MeshInfo {
 
             // Extract material data if present
             extractMaterialData(cellData, info);
+
+            // Extract contact surface data if present
+            extractContactSurfaceData(cellData, info);
         }
 
     } catch (error) {
@@ -322,6 +355,157 @@ function extractMaterialData(cellData: any, info: MeshInfo): void {
     } catch (error) {
         console.error('Error extracting material data:', error);
         info.hasMaterials = false;
+    }
+}
+
+/**
+ * Common contact surface field names to look for in VTK files
+ */
+const CONTACT_FIELD_NAMES = [
+    'ContactId',
+    'ContactIds',
+    'Contact',
+    'contact',
+    'ContactSurface',
+    'ContactSurfaceId',
+    'SurfaceId',
+    'surface',
+    'SideSet',
+    'SideSetId',
+    'NodeSet',
+    'NodeSetId'
+];
+
+/**
+ * Extract contact surface data from cell data
+ */
+function extractContactSurfaceData(cellData: any, info: MeshInfo): void {
+    try {
+        // Search for contact surface data array
+        let contactArray: any = null;
+        let contactArrayName: string = '';
+
+        // Check each common contact field name
+        for (const fieldName of CONTACT_FIELD_NAMES) {
+            const array = cellData.getArrayByName(fieldName);
+            if (array && array.getNumberOfComponents() === 1) {
+                contactArray = array;
+                contactArrayName = fieldName;
+                console.log(`Found contact surface data in field: ${fieldName}`);
+                break;
+            }
+        }
+
+        // If no contact array found, return
+        if (!contactArray) {
+            console.log('No contact surface data found in mesh');
+            return;
+        }
+
+        info.hasContactSurfaces = true;
+        info.contactSurfaceArrayName = contactArrayName;
+
+        // Get the raw data array
+        const dataArray = contactArray.getData();
+        const numCells = info.numberOfCells;
+
+        // Count occurrences of each contact surface ID
+        const contactCounts = new Map<number, number>();
+        let minId = Infinity;
+        let maxId = -Infinity;
+
+        for (let i = 0; i < numCells; i++) {
+            const contactId = Math.floor(dataArray[i]);  // Ensure integer
+
+            // Skip ID 0 as it typically means "no contact surface"
+            if (contactId === 0) {
+                continue;
+            }
+
+            contactCounts.set(contactId, (contactCounts.get(contactId) || 0) + 1);
+
+            if (contactId < minId) minId = contactId;
+            if (contactId > maxId) maxId = contactId;
+        }
+
+        // If no contact surfaces found (all zeros), return
+        if (contactCounts.size === 0) {
+            console.log('All contact IDs are 0 (no contact surfaces defined)');
+            info.hasContactSurfaces = false;
+            return;
+        }
+
+        info.contactRange = [minId, maxId];
+
+        // Create ContactSurfaceInfo objects
+        const contactSurfaces: ContactSurfaceInfo[] = [];
+        for (const [id, count] of contactCounts.entries()) {
+            // Determine contact type based on naming conventions
+            // Odd IDs are often masters, even IDs slaves (common convention)
+            let type: 'master' | 'slave' | 'self' = 'self';
+            if (id % 2 === 1) {
+                type = 'master';
+            } else {
+                type = 'slave';
+            }
+
+            contactSurfaces.push({
+                id,
+                name: `Contact ${id} (${type})`,
+                cellCount: count,
+                percentage: (count / numCells) * 100,
+                type
+            });
+        }
+
+        // Sort by contact ID
+        contactSurfaces.sort((a, b) => a.id - b.id);
+        info.contactSurfaces = contactSurfaces;
+
+        // Create contact pairs (match adjacent IDs as pairs)
+        const contactPairs: ContactPairInfo[] = [];
+        const pairedIds = new Set<number>();
+
+        for (let i = 0; i < contactSurfaces.length; i++) {
+            const surface = contactSurfaces[i];
+
+            if (pairedIds.has(surface.id)) {
+                continue;
+            }
+
+            // Try to find a pair (next ID)
+            const pairId = surface.id + 1;
+            const pairSurface = contactSurfaces.find(s => s.id === pairId);
+
+            if (pairSurface) {
+                // Found a pair
+                contactPairs.push({
+                    id: Math.floor(surface.id / 2) + 1,
+                    name: `Pair ${Math.floor(surface.id / 2) + 1}`,
+                    master: surface.type === 'master' ? surface : pairSurface,
+                    slave: surface.type === 'slave' ? surface : pairSurface
+                });
+                pairedIds.add(surface.id);
+                pairedIds.add(pairSurface.id);
+            } else {
+                // Unpaired surface (self-contact or single surface)
+                contactPairs.push({
+                    id: surface.id,
+                    name: `Surface ${surface.id}`,
+                    master: surface.type === 'master' ? surface : undefined,
+                    slave: surface.type === 'slave' ? surface : undefined
+                });
+                pairedIds.add(surface.id);
+            }
+        }
+
+        info.contactPairs = contactPairs;
+
+        console.log(`Found ${contactSurfaces.length} contact surfaces in ${contactPairs.length} pairs (IDs ${minId}-${maxId})`);
+
+    } catch (error) {
+        console.error('Error extracting contact surface data:', error);
+        info.hasContactSurfaces = false;
     }
 }
 
