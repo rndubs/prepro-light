@@ -101,3 +101,56 @@ export async function waitFor(
     }
     throw new Error(`Timeout waiting for condition after ${timeoutMs}ms`);
 }
+
+/**
+ * Check if WebGL is available in the current environment
+ * This is important for performance tests that need real rendering
+ */
+export async function isWebGLAvailable(): Promise<boolean> {
+    try {
+        // Create a test webview panel to check WebGL availability
+        const panel = vscode.window.createWebviewPanel(
+            'webglTest',
+            'WebGL Test',
+            vscode.ViewColumn.One,
+            { enableScripts: true }
+        );
+
+        // Test HTML that checks for WebGL support
+        panel.webview.html = `
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <script>
+                    const vscode = acquireVsCodeApi();
+                    const canvas = document.createElement('canvas');
+                    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+                    vscode.postMessage({ webglAvailable: !!gl });
+                </script>
+            </body>
+            </html>
+        `;
+
+        // Wait for the webview to report back
+        const webglAvailable = await new Promise<boolean>((resolve) => {
+            const timeout = setTimeout(() => {
+                resolve(false);
+            }, 3000);
+
+            const disposable = panel.webview.onDidReceiveMessage((message) => {
+                clearTimeout(timeout);
+                disposable.dispose();
+                resolve(message.webglAvailable === true);
+            });
+        });
+
+        // Clean up
+        panel.dispose();
+        await wait(100);
+
+        return webglAvailable;
+    } catch (error) {
+        console.error('Error checking WebGL availability:', error);
+        return false;
+    }
+}

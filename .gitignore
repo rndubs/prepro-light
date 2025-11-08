@@ -7,3 +7,12 @@ dist
 .eslintcache
 coverage/
 *.map
+
+# Performance test mesh files (large binary files)
+test_meshes/
+
+# Benchmark results
+benchmark_results.json
+benchmark_realistic_results.json
+benchmark_realistic_output.log
+performance_test_output.log

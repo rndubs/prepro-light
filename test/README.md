@@ -5,25 +5,28 @@ This directory contains integration tests for the Prepro Light VS Code extension
 ## Test Infrastructure
 
 ### Framework
-- **Test Runner**: `@vscode/test-electron` - Official VS Code extension test framework
+- **Test Runner**: `@vscode/test-cli` - Modern VS Code extension test CLI (fixes macOS Electron issues)
+- **Legacy Runner**: `@vscode/test-electron` - Available via `npm run test:legacy`
 - **Test Framework**: Mocha (TDD interface)
 - **Assertions**: Node.js built-in `assert` module
-- **Environment**: Headless Electron (Xvfb on Linux)
+- **Environment**: Configurable via `.vscode-test.mjs` (headless by default)
 
 ### Test Structure
 
 ```
 test/
-├── runTest.ts              # Test runner entry point
+├── runTest.ts              # Test runner entry point (headless mode)
+├── runPerformanceTest.ts   # Performance test runner (headful mode with GPU)
 ├── suite/
-│   ├── index.ts           # Mocha test suite configuration
-│   ├── helpers.ts         # Test utility functions
-│   ├── extension.test.ts  # Extension activation tests (Phase 4b.2)
+│   ├── index.ts            # Mocha test suite configuration
+│   ├── helpers.ts          # Test utility functions
+│   ├── extension.test.ts   # Extension activation tests (Phase 4b.2)
 │   ├── fileLoading.test.ts # File loading tests (Phase 4b.3)
-│   ├── webview.test.ts    # Webview integration tests (Phase 4b.4)
-│   └── rendering.test.ts  # Rendering tests (Phase 4b.5)
-├── fixtures/              # Test fixture files
-└── README.md             # This file
+│   ├── webview.test.ts     # Webview integration tests (Phase 4b.4)
+│   ├── rendering.test.ts   # Rendering tests (Phase 4b.5)
+│   └── performance.test.ts # Performance benchmarking tests
+├── fixtures/               # Test fixture files
+└── README.md              # This file
 ```
 
 ## Running Tests
@@ -53,6 +56,35 @@ npm test
 ### Individual Test Suites
 
 To run specific test files during development, you can modify `test/suite/index.ts` to filter test files.
+
+### Performance Tests
+
+**File**: `performance.test.ts`
+
+Performance tests measure real-world file loading and rendering performance. Unlike other integration tests, these **require WebGL** to run and should be executed in **headful mode** for accurate benchmarking.
+
+```bash
+# Build the extension first
+npm run compile
+
+# Run performance tests (configured for headful mode with GPU)
+npm run test:performance
+```
+
+**Important**: Performance tests will automatically detect if WebGL is unavailable (e.g., in headless/CI environments) and skip gracefully. To get real performance data:
+- Run on a machine with GPU access
+- Use `npm run test:performance` (configured for headful mode via `.vscode-test.mjs`)
+- Generate test meshes first: `python3 generate_test_meshes.py`
+
+**macOS Note**: The new `@vscode/test-cli` runner resolves Electron command-line flag restrictions that prevented tests from running on macOS 14+ with hardened Electron security.
+
+The performance test suite:
+- ✅ Dynamically tests all meshes in `test_meshes/` directory
+- ✅ Measures actual file loading and rendering time
+- ✅ Tests different mesh sizes (20k, 100k, 500k, 1M nodes)
+- ✅ Tests different formats (STL, OBJ, VTP)
+- ✅ Skips files larger than 100MB
+- ✅ Provides detailed performance analysis and statistics
 
 ## Test Coverage
 
@@ -112,6 +144,7 @@ Tests cover:
 - `closeAllEditors()` - Clean up all open editors
 - `isCommandRegistered(commandId)` - Check command registration
 - `waitFor(condition, timeout)` - Wait for condition to be true
+- `isWebGLAvailable()` - Check if WebGL is available for rendering tests
 
 ## Sample Files Used
 
@@ -160,7 +193,8 @@ Tests pass if:
 ### Tests Fail to Start
 - Ensure `npm run compile` has been run
 - Check that all dependencies are installed (`npm install`)
-- Verify VS Code can be downloaded (required by @vscode/test-electron)
+- Verify VS Code can be downloaded (required on first run)
+- **macOS**: If you see "bad option" errors, ensure you're using `npm test` (not the legacy runner)
 
 ### Tests Timeout
 - Increase timeout in individual test: `this.timeout(15000)`
@@ -171,6 +205,12 @@ Tests pass if:
 - Verify extension ID in `helpers.ts` matches package.json
 - Ensure extension is built before running tests
 - Check that extension main file exists in dist/
+
+### macOS "bad option" Errors (Legacy Runner)
+If using the legacy `@vscode/test-electron` runner directly:
+- Switch to the new CLI: `npm test` instead of `npm run test:legacy`
+- The `@vscode/test-cli` runner is configured in `.vscode-test.mjs` and avoids hardcoded Electron flags
+- This resolves issues with macOS 14+ Electron hardened runtime restrictions
 
 ## Future Enhancements (Phase 9)
 
@@ -191,8 +231,18 @@ When adding new features:
 4. Keep tests fast (< 10s per test max)
 5. Use helper functions for common operations
 
+## Configuration
+
+### `.vscode-test.mjs`
+The test configuration file defines two test profiles:
+- **integration**: All tests in headless mode (default)
+- **performance**: Performance tests in headful mode with GPU access
+
+Customize test behavior by modifying this file (e.g., VS Code version, launch args, Mocha options).
+
 ## References
 
 - [VS Code Extension Testing](https://code.visualstudio.com/api/working-with-extensions/testing-extension)
+- [@vscode/test-cli Documentation](https://github.com/microsoft/vscode-test/tree/main/lib/cli)
 - [@vscode/test-electron Documentation](https://github.com/microsoft/vscode-test)
 - [Mocha Documentation](https://mochajs.org/)

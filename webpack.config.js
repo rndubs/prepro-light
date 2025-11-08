@@ -79,13 +79,17 @@ const testConfig = {
   target: 'node',
   mode: 'none',
   entry: {
+    // Legacy test runners (for test:legacy scripts)
     'test/runTest': './test/runTest.ts',
+    'test/runPerformanceTest': './test/runPerformanceTest.ts',
+    // Test suites (used by both legacy and new @vscode/test-cli)
     'test/suite/index': './test/suite/index.ts',
     'test/suite/helpers': './test/suite/helpers.ts',
     'test/suite/extension.test': './test/suite/extension.test.ts',
     'test/suite/fileLoading.test': './test/suite/fileLoading.test.ts',
     'test/suite/webview.test': './test/suite/webview.test.ts',
-    'test/suite/rendering.test': './test/suite/rendering.test.ts'
+    'test/suite/rendering.test': './test/suite/rendering.test.ts',
+    'test/suite/performance.test': './test/suite/performance.test.ts'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),

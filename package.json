@@ -67,7 +67,10 @@
     "watch": "webpack --mode development --watch",
     "compile": "webpack --mode development",
     "lint": "eslint src --ext ts",
-    "test": "node ./dist/test/runTest.js"
+    "test": "vscode-test --label integration",
+    "test:performance": "vscode-test --label performance",
+    "test:legacy": "node ./dist/test/runTest.js",
+    "test:performance:legacy": "node ./dist/test/runPerformanceTest.js"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -75,6 +78,7 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.3.0",
     "css-loader": "^6.8.1",
     "eslint": "^8.50.0",
