@@ -69,6 +69,25 @@ const webviewConfig = {
       {
         test: /\.css$/,
         use: ['style-loader', 'css-loader']
+      },
+      // VTK.js worker files - inline as blobs for VS Code webview compatibility
+      {
+        test: /\.worker\.js$/,
+        include: /node_modules[\\/]@kitware[\\/]vtk\.js/,
+        use: [
+          {
+            loader: 'worker-loader',
+            options: {
+              inline: 'no-fallback'
+            }
+          }
+        ]
+      },
+      // VTK.js shader files
+      {
+        test: /\.glsl$/,
+        include: /node_modules[\\/]@kitware[\\/]vtk\.js/,
+        type: 'asset/source'
       }
     ]
   }

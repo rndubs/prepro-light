@@ -363,8 +363,9 @@ export class VTKRenderer {
         });
 
         // Build color table as a flat array [R, G, B, A, R, G, B, A, ...]
+        // VTK.js expects Uint8Array with values 0-255, not Float32Array with 0.0-1.0
         const numColors = maxId - minId + 1;
-        const colorTable = new Float32Array(numColors * 4);
+        const colorTable = new Uint8Array(numColors * 4);
 
         for (let id = minId; id <= maxId; id++) {
             const idx = (id - minId) * 4;
@@ -372,16 +373,17 @@ export class VTKRenderer {
 
             if (colorIndex !== undefined && colorIndex < colors.length) {
                 const color = colors[colorIndex];
-                colorTable[idx] = color[0];
-                colorTable[idx + 1] = color[1];
-                colorTable[idx + 2] = color[2];
-                colorTable[idx + 3] = 1.0;
+                // Convert from 0.0-1.0 range to 0-255 range
+                colorTable[idx] = Math.round(color[0] * 255);
+                colorTable[idx + 1] = Math.round(color[1] * 255);
+                colorTable[idx + 2] = Math.round(color[2] * 255);
+                colorTable[idx + 3] = 255;
             } else {
                 // Fallback gray color for unmapped IDs
-                colorTable[idx] = 0.5;
-                colorTable[idx + 1] = 0.5;
-                colorTable[idx + 2] = 0.5;
-                colorTable[idx + 3] = 1.0;
+                colorTable[idx] = 128;
+                colorTable[idx + 1] = 128;
+                colorTable[idx + 2] = 128;
+                colorTable[idx + 3] = 255;
             }
         }
 
@@ -522,8 +524,9 @@ export class VTKRenderer {
         });
 
         // Build color table as a flat array [R, G, B, A, R, G, B, A, ...]
+        // VTK.js expects Uint8Array with values 0-255, not Float32Array with 0.0-1.0
         const numColors = maxId - minId + 1;
-        const colorTable = new Float32Array(numColors * 4);
+        const colorTable = new Uint8Array(numColors * 4);
 
         for (let id = minId; id <= maxId; id++) {
             const idx = (id - minId) * 4;
@@ -531,16 +534,17 @@ export class VTKRenderer {
 
             if (colorIndex !== undefined && colorIndex < colors.length) {
                 const color = colors[colorIndex];
-                colorTable[idx] = color[0];
-                colorTable[idx + 1] = color[1];
-                colorTable[idx + 2] = color[2];
-                colorTable[idx + 3] = 1.0;
+                // Convert from 0.0-1.0 range to 0-255 range
+                colorTable[idx] = Math.round(color[0] * 255);
+                colorTable[idx + 1] = Math.round(color[1] * 255);
+                colorTable[idx + 2] = Math.round(color[2] * 255);
+                colorTable[idx + 3] = 255;
             } else {
                 // Transparent for unmapped IDs (ID 0 = no contact)
-                colorTable[idx] = 0.0;
-                colorTable[idx + 1] = 0.0;
-                colorTable[idx + 2] = 0.0;
-                colorTable[idx + 3] = 0.0;
+                colorTable[idx] = 0;
+                colorTable[idx + 1] = 0;
+                colorTable[idx + 2] = 0;
+                colorTable[idx + 3] = 0;
             }
         }
 
