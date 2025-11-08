@@ -75,8 +75,9 @@ suite('Performance Tests', () => {
         const nodeCount = match ? match[1] : 'unknown';
         const format = match ? match[2].toUpperCase() : path.extname(filePath).slice(1).toUpperCase();
 
-        // Check if file exceeds general size limit (100 MB)
-        const MAX_FILE_SIZE_MB = 100;
+        // Check if file exceeds general size limit (50 MB)
+        // This limit prevents "Invalid array length" errors in the browser
+        const MAX_FILE_SIZE_MB = 50;
         if (fileSizeMB > MAX_FILE_SIZE_MB) {
             return {
                 fileName,
@@ -86,22 +87,7 @@ suite('Performance Tests', () => {
                 loadTimeMs: 0,
                 success: false,
                 skipped: true,
-                skipReason: `File exceeds ${MAX_FILE_SIZE_MB} MB limit`
-            };
-        }
-
-        // Check VTP-specific size limit (ASCII VTP files have lower limits due to parsing)
-        const MAX_VTP_SIZE_MB = 30;
-        if (format === 'VTP' && fileSizeMB > MAX_VTP_SIZE_MB) {
-            return {
-                fileName,
-                fileSizeMB: parseFloat(fileSizeMB.toFixed(2)),
-                nodeCount,
-                format,
-                loadTimeMs: 0,
-                success: false,
-                skipped: true,
-                skipReason: `ASCII VTP file exceeds ${MAX_VTP_SIZE_MB} MB browser parsing limit`
+                skipReason: `File exceeds ${MAX_FILE_SIZE_MB} MB browser parsing limit`
             };
         }
 

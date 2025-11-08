@@ -49,24 +49,23 @@ export async function loadMeshFile(
         let reader: any;
         let polyData: any;
 
+        // Browser file size limits for different formats
+        // These limits prevent "Invalid array length" errors when parsing large files
+        const fileSizeMB = fileContent.length / (1024 * 1024);
+        const MAX_FILE_SIZE_MB = 50; // General limit for all formats to prevent browser issues
+
+        if (fileSizeMB > MAX_FILE_SIZE_MB) {
+            console.warn(`File is ${fileSizeMB.toFixed(2)} MB, which exceeds browser parsing limits`);
+            return {
+                success: false,
+                error: `File too large (${fileSizeMB.toFixed(2)} MB). Files are limited to ${MAX_FILE_SIZE_MB} MB in the browser due to JavaScript memory constraints. For larger meshes, consider: 1) Decimating the mesh to reduce size, 2) Using mesh simplification tools, or 3) Splitting into smaller parts.`
+            };
+        }
+
         switch (fileExtension) {
             case '.vtp':
                 reader = vtkXMLPolyDataReader.newInstance();
                 console.log('Using vtkXMLPolyDataReader for VTP file');
-
-                // Check file size for ASCII VTP files - large ASCII XML files can cause
-                // "Invalid array length" errors in the browser due to JavaScript TypedArray limits
-                // Binary VTP files don't have this issue, but our generator creates ASCII
-                const MAX_VTP_SIZE_MB = 30; // Conservative limit for ASCII VTP files
-                const fileSizeMB = fileContent.length / (1024 * 1024);
-
-                if (fileSizeMB > MAX_VTP_SIZE_MB) {
-                    console.warn(`VTP file is ${fileSizeMB.toFixed(2)} MB, which may exceed browser parsing limits`);
-                    return {
-                        success: false,
-                        error: `VTP file too large (${fileSizeMB.toFixed(2)} MB). ASCII VTP files are limited to ${MAX_VTP_SIZE_MB} MB in the browser. Please use STL or OBJ format for large meshes, or convert to binary VTP format.`
-                    };
-                }
                 break;
 
             case '.vtu':

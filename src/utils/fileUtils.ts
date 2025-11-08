@@ -3,9 +3,11 @@
  */
 
 /**
- * Maximum file size for mesh files (100 MB)
+ * Maximum file size for mesh files (50 MB)
+ * This limit prevents "Invalid array length" errors in the browser
+ * when parsing large mesh files with VTK.js
  */
-export const MAX_FILE_SIZE = 100 * 1024 * 1024;
+export const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 /**
  * Warn threshold for large files (10 MB)
